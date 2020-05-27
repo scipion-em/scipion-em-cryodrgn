@@ -151,11 +151,15 @@ class CryoDrgnViewer(EmProtocolViewer):
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
     def _showPlot(self, fn, epoch):
-        img = mpimg.imread(self.protocol._getFileName(fn, epoch=epoch))
-        imgplot = plt.imshow(img)
-        plt.axis('off')
-        plt.show()
-        return [imgplot]
+        fn = self.protocol._getFileName(fn, epoch=epoch)
+        if pwutils.exists(fn):
+            img = mpimg.imread(fn)
+            imgplot = plt.imshow(img)
+            plt.axis('off')
+            plt.show()
+            return [imgplot]
+        else:
+            self.showError('File %s not found! Have you run analysis?' % fn)
 
     def _showHistogram(self, param=None):
         self._showPlot('output_hist', epoch=self._epoch)
@@ -164,12 +168,21 @@ class CryoDrgnViewer(EmProtocolViewer):
         self._showPlot('output_dist', epoch=self._epoch)
 
     def _showNotebook(self, param=None):
+        program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
         fn = self.protocol._getFileName('output_notebook',
                                         epoch=self._epoch)
+        program.append('jupyter notebook %s' % os.path.basename(fn))
+
         if pwutils.exists(fn):
-            text._open_cmd(fn, self.getTkRoot())
+            fnDir = os.path.dirname(fn)
+            hostConfig = self.protocol.getHostConfig()
+            executor = StepExecutor(hostConfig)
+            self.protocol.setStepsExecutor(executor)
+            self.protocol.runJob(" ".join(program), '',
+                                 env=Plugin.getEnviron(),
+                                 cwd=fnDir)
         else:
-            self.showInfo('Jupyter notebook is not ready yet. Please try again in a minute.')
+            self.showError('Jupyter notebook not found! Have you run analysis?')
 
     def _getVolumeNames(self):
         vols = []

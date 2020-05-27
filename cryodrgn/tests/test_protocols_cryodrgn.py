@@ -60,7 +60,9 @@ class TestCryoDrgn(BaseTest):
     @classmethod
     def runPreprocess(cls, particles):
         print(magentaStr("\n==> Testing cryoDRGN - preprocess:"))
-        protPreprocess = cls.newProtocol(CryoDrgnProtPreprocess)
+        protPreprocess = cls.newProtocol(CryoDrgnProtPreprocess,
+                                         scaleSize=64)
+        protPreprocess._createFilenameTemplates()
         protPreprocess.inputParticles.set(particles)
         cls.launchProtocol(protPreprocess)
 
@@ -71,7 +73,8 @@ class TestCryoDrgn(BaseTest):
 
     def testTraining(self):
         print(magentaStr("\n==> Testing cryoDRGN - training:"))
-        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=5)
+        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3)
+        protTrain._createFilenameTemplates()
         protTrain.protPreprocess.set(self.protPreprocess)
         self.launchProtocol(protTrain)
 

@@ -223,4 +223,4 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         return self._getEpochNumber(-1)
 
     def _getSampling(self):
-        return self.protPreprocess.get()._sampling
+        return self.protPreprocess.get()._getSamplingRate()
