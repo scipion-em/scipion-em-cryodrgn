@@ -25,6 +25,8 @@
 # **************************************************************************
 
 import os
+from glob import glob
+import re
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
@@ -45,6 +47,13 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
 
+    def _initialize(self):
+        """ This function is mean to be called after the
+        working dir for the protocol have been set. (maybe after recovery from mapper)
+        """
+        self._createFilenameTemplates()
+        self._createEpochTemplates()
+
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
         myDict = {
@@ -52,10 +61,20 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             'input_stack': self._getExtraPath('downsampled_parts.mrcs'),
             'input_poses': self._getExtraPath('pose.pkl'),
             'input_ctf': self._getExtraPath('ctf.pkl'),
-            'output_dir': self._getExtraPath('output')
+            'output_dir': self._getExtraPath('output'),
+            'output_notebook': self._getExtraPath('output/analyze.%(epoch)d/cryoDRGN_viz.ipynb'),
+            'output_hist': self._getExtraPath('output/analyze.%(epoch)d/z_hist.png'),
+            'output_dist': self._getExtraPath('output/analyze.%(epoch)d/z.png'),
+            'output_vol': self._getExtraPath('output/analyze.%(epoch)d/vol_%(id)03d.mrc'),
+            'output_z': self._getExtraPath('output/z.%(z)d.pkl')
         }
 
         self._updateFilenamesDict(myDict)
+
+    def _createEpochTemplates(self):
+        """ Setup the regex on how to find epochs. """
+        self._epochTemplate = self._getFileName('output_z', z=0).replace('z.0', 'z.*')
+        self._epochRegex = re.compile('z.(\d).pkl')
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -104,7 +123,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._createFilenameTemplates()
+        self._initialize()
         self._insertFunctionStep('convertInputStep')
         self._insertFunctionStep('runTrainingStep')
         self._insertFunctionStep('createOutputStep')
@@ -188,3 +207,20 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         location = str(row.rlnImageName)
 
         return os.path.dirname(location.split('@')[1])
+
+    def _getEpochNumber(self, index):
+        """ Return the list of epoch files, given the epochTemplate. """
+        result = None
+        files = sorted(glob(self._epochTemplate))
+        if files:
+            f = files[index]
+            s = self._epochRegex.search(f)
+            if s:
+                result = int(s.group(1))  # group 1 is 1 digit epoch number
+        return result
+
+    def _lastIter(self):
+        return self._getEpochNumber(-1)
+
+    def _getSampling(self):
+        return self.protPreprocess.get()._sampling

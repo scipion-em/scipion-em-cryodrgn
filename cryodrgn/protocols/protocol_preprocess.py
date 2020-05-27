@@ -115,7 +115,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
 
     def createOutputStep(self):
-        pass
+        self._sampling = self._getSamplingRate()
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -141,7 +141,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     def _getDownsampleArgs(self):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_parts'),
-                '--datadir %s' % self._getDataDir()]
+                '--datadir %s' % self._getDataDir(),
+                '--relion31']
 
         if self.doScale:
             args.append('-D %d ' % self.scaleSize.get())
@@ -180,7 +181,6 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         oldSampling = inputSet.getSamplingRate()
         scaleFactor = self._getScaleFactor(inputSet)
         newSampling = oldSampling * scaleFactor
-        self._sampling = newSampling
 
         return newSampling
 
