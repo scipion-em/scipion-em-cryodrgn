@@ -2,7 +2,7 @@
 cryoDRGN plugin
 ===============
 
-** Important: the plugin is still in development! **
+**Important: the plugin is still in development!**
 
 This plugin provide a wrapper around `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
 
@@ -62,7 +62,7 @@ Verifying
 ---------
 To check the installation, simply run the following Scipion test:
 
-``scipion test cryodrgn.tests.test_protocols_cryodrgn.TestcryoDRGN``
+``scipion test cryodrgn.tests.test_protocols_cryodrgn.TestCryoDrgn``
 
 Supported versions
 ------------------
@@ -73,8 +73,7 @@ Protocols
 ----------
 
 * preprocess
-* train
-* analyze
+* training
 
 References
 -----------
