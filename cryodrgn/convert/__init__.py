@@ -1,8 +1,8 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] SciLifeLab, Stockholm University
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,5 +24,4 @@
 # *
 # **************************************************************************
 
-from .protocol_preprocess import CryoDrgnProtPreprocess
-from .protocol_train import CryoDrgnProtTrain
+from .convert import Writer

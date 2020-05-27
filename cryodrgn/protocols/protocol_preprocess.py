@@ -28,9 +28,11 @@ import os
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from pwem.constants import ALIGN_PROJ
 from pwem.protocols import ProtProcessParticles
 
 from cryodrgn import Plugin
+import cryodrgn.convert as convert
 
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
@@ -43,6 +45,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
+        self._sampling = 1.0
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
@@ -56,12 +59,14 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         self._updateFilenamesDict(myDict)
 
     # --------------------------- DEFINE param functions ----------------------
-
     def _defineParams(self, form):
         form.addSection(label='Input')
-        form.addParam('protRefine', params.PointerParam,
-                      pointerClass="ProtRefine3D",
-                      label='Select a previous Relion refinement protocol')
+        form.addParam('inputParticles', params.PointerParam,
+                      pointerClass='SetOfParticles',
+                      pointerCondition='hasAlignmentProj',
+                      label="Input particles", important=True,
+                      help='Select a set of particles from a consensus '
+                           '3D refinement.')
         form.addParam('doScale', params.BooleanParam, default=True,
                       label='Downsample particles?')
         form.addParam('scaleSize', params.IntParam, default=128,
@@ -71,11 +76,9 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       help='New box size in pixels, must be even.')
 
     # --------------------------- INSERT steps functions ----------------------
-
     def _insertAllSteps(self):
-        objId = self.protRefine.get().getObjId()
         self._createFilenameTemplates()
-        self._insertFunctionStep('convertInputStep', objId)
+        self._insertFunctionStep('convertInputStep')
 
         if self.doScale:
             self._insertFunctionStep('runDownSampleStep')
@@ -85,13 +88,13 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         self._insertFunctionStep('createOutputStep')
 
     # --------------------------- STEPS functions -----------------------------
-
-    def convertInputStep(self, protId):
+    def convertInputStep(self):
         """ Create a star file as expected by cryoDRGN."""
-        protRef = self.protRefine.get()
-        protRef._initialize()
-        pwutils.createLink(protRef._getFileName('dataFinal'),
-                           self._getFileName('input_parts'))
+        imgSet = self.inputParticles.get()
+        # Create links to binary files and write the relion .star file
+        writer = convert.Writer(outputDir=self._getExtraPath())
+        writer.writeSetOfParticles(imgSet, self._getFileName('input_parts'),
+                                   alignType=ALIGN_PROJ)
 
     def runDownSampleStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
@@ -115,7 +118,6 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         pass
 
     # --------------------------- INFO functions ------------------------------
-
     def _summary(self):
         summary = []
         self._createFilenameTemplates()
@@ -136,9 +138,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         return errors
 
     # --------------------------- UTILS functions -----------------------------
-
     def _getDownsampleArgs(self):
-
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_parts'),
                 '--datadir %s' % self._getDataDir()]
@@ -152,7 +152,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_poses'),
                 '-D %d' % self._getBoxSize(),
-                '--Apix %0.3f' % self._getSamplingRate()]
+                '--Apix %0.3f' % self._getSamplingRate(),
+                '--relion31']
 
         return args
 
@@ -160,24 +161,26 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_ctf'),
                 '-D %d' % self._getBoxSize(),
-                '--Apix %0.3f' % self._getSamplingRate()]
+                '--Apix %0.3f' % self._getSamplingRate(),
+                '--relion31']
 
         return args
 
     def _getInputParticles(self):
-        return self.protRefine.get().outputParticles
+        return self.inputParticles.get()
 
     def _getBoxSize(self):
         if self.doScale:
             return self.scaleSize.get()
         else:
-            return self._getInputParticles().getDimensions()[0]
+            return self._getInputParticles().getDim()[0]
 
     def _getSamplingRate(self):
         inputSet = self._getInputParticles()
         oldSampling = inputSet.getSamplingRate()
         scaleFactor = self._getScaleFactor(inputSet)
         newSampling = oldSampling * scaleFactor
+        self._sampling = newSampling
 
         return newSampling
 
@@ -190,8 +193,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def _getDataDir(self):
         """ We assume all mrcs stacks are in the same folder. """
-        protRef = self.protRefine.get()
-        part = protRef.outputParticles.getFirstItem()
+        part = self._getInputParticles().getFirstItem()
         _, fn = part.getLocation()
 
         return os.path.dirname(fn)
