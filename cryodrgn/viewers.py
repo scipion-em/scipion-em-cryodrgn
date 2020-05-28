@@ -112,7 +112,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         self.protocol.runJob(program, args, env=Plugin.getEnviron(),
                              cwd=None)
 
-    def _showVolumes(self, param=None):
+    def _showVolumes(self, paramName=None):
         if self.displayVol == VOLUME_CHIMERA:
             return self._showVolumesChimera()
         elif self.displayVol == VOLUME_SLICES:
@@ -161,13 +161,13 @@ class CryoDrgnViewer(EmProtocolViewer):
         else:
             self.showError('File %s not found! Have you run analysis?' % fn)
 
-    def _showHistogram(self, param=None):
+    def _showHistogram(self, paramName=None):
         self._showPlot('output_hist', epoch=self._epoch)
 
-    def _showDistribution(self, param=None):
+    def _showDistribution(self, paramName=None):
         self._showPlot('output_dist', epoch=self._epoch)
 
-    def _showNotebook(self, param=None):
+    def _showNotebook(self, paramName=None):
         program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
         fn = self.protocol._getFileName('output_notebook',
                                         epoch=self._epoch)
@@ -183,6 +183,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                                  cwd=fnDir)
         else:
             self.showError('Jupyter notebook not found! Have you run analysis?')
+
 
     def _getVolumeNames(self):
         vols = []

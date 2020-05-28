@@ -36,7 +36,7 @@ _logo = "cryodrgn_logo.png"
 
 
 class Plugin(pwem.Plugin):
-    _supportedVersions = []
+    _supportedVersions = VERSIONS
 
     @classmethod
     def _defineVariables(cls):
@@ -72,7 +72,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def defineBinaries(cls, env):
         cls.addCryoDrgnPackage(env, CRYODRGN_DEFAULT_VER_NUM,
-                            default=bool(cls.getCondaActivationCmd()))
+                               default=bool(cls.getCondaActivationCmd()))
 
     @classmethod
     def addCryoDrgnPackage(cls, env, version, default=False):
