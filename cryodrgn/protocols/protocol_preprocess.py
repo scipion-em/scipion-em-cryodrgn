@@ -168,10 +168,13 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                 '--Apix %0.3f' % self._getSamplingRate(),
                 '--relion31']
 
-        cs, amp, kv = self._getExtraCtfParams()
+        cs, amp, kv, ps = self._getExtraCtfParams()
         args.extend(['--kv %f ' % kv,
                      '--cs %f' % cs,
                      '-w %f' % amp])
+
+        if ps == 0:  # no phase shift found
+            args.append('--ps 0')
 
         return args
 
@@ -214,4 +217,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         amp = mdOptics.rlnAmplitudeContrast
         kv = mdOptics.rlnVoltage
 
-        return cs, amp, kv
+        mdParts = Table(fileName=self._getFileName('input_parts'),
+                        tableName='particles')[0]
+        ps = getattr(mdParts, 'rlnCtfPhaseShift', 0.)
+
+        return cs, amp, kv, ps
