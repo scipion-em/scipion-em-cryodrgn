@@ -26,7 +26,7 @@
 
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pwem.protocols import ProtImportParticles
-from pyworkflow.utils import magentaStr, exists
+from pyworkflow.utils import magentaStr
 
 from ..protocols import *
 
@@ -41,8 +41,7 @@ class TestCryoDrgn(BaseTest):
                                      starFile=partStar,
                                      magnification=mag,
                                      samplingRate=samplingRate,
-                                     haveDataBeenPhaseFlipped=True
-                                     )
+                                     haveDataBeenPhaseFlipped=False)
         cls.launchProtocol(protImport)
         cls.assertIsNotNone(protImport.outputParticles,
                             "SetOfParticles has not been produced.")
@@ -66,9 +65,6 @@ class TestCryoDrgn(BaseTest):
         protPreprocess.inputParticles.set(particles)
         cls.launchProtocol(protPreprocess)
 
-        check = exists(protPreprocess._getFileName("output_ctf"))
-        cls.assertTrue(check, "There was a problem with cryoDRGN preprocess")
-
         return protPreprocess
 
     def testTraining(self):
@@ -77,6 +73,3 @@ class TestCryoDrgn(BaseTest):
         protTrain._createFilenameTemplates()
         protTrain.protPreprocess.set(self.protPreprocess)
         self.launchProtocol(protTrain)
-
-        check = exists(protTrain._getFileName("output_z", z=0))
-        self.assertTrue(check, "There was a problem with cryoDRGN training")

@@ -2,8 +2,6 @@
 cryoDRGN plugin
 ===============
 
-**Important: the plugin is still in development!**
-
 This plugin provide a wrapper around `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
 
 +--------------+----------------+
