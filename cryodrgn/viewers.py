@@ -32,7 +32,6 @@ from pyworkflow.protocol.params import LabelParam, EnumParam, IntParam
 from pyworkflow.protocol.executor import StepExecutor
 import pyworkflow.utils as pwutils
 from pyworkflow.viewer import DESKTOP_TKINTER
-import pyworkflow.gui.text as text
 from pwem.viewers import (ChimeraClientView, ObjectView,
                           ChimeraView, EmProtocolViewer)
 

@@ -94,8 +94,8 @@ class Plugin(pwem.Plugin):
                            'conda install -y -c conda-forge umap-learn &&',
                            'conda install -y -c conda-forge jupyterlab &&',
                            'pip install ipywidgets cufflinks &&',
-                           'git clone https://github.com/zhonge/cryodrgn.git &&',
-                           'cd cryodrgn &&',
+                           'git clone https://github.com/zhonge/cryodrgn.git cryodrgn-master &&',
+                           'cd cryodrgn-master &&',
                            #'git checkout %s &&' % version,
                            'pip install -e . &&',
                            'cd .. &&'])
