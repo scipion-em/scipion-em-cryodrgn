@@ -89,10 +89,8 @@ class Plugin(pwem.Plugin):
 
         # Install downloaded code
         installCmd.extend(['conda install -y pytorch cudatoolkit=10.1 -c pytorch &&',
-                           'conda install -y pandas &&',
-                           'conda install -y seaborn scikit-learn &&',
-                           'conda install -y -c conda-forge umap-learn &&',
-                           'conda install -y -c conda-forge jupyterlab &&',
+                           'conda install -y pandas seaborn scikit-learn &&',
+                           'conda install -y -c conda-forge umap-learn jupyterlab &&',
                            'pip install ipywidgets cufflinks &&',
                            'git clone https://github.com/zhonge/cryodrgn.git cryodrgn-master &&',
                            'cd cryodrgn-master &&',
