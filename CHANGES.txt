@@ -1,1 +1,2 @@
+3.0.0b1 - changed version to reflect Scipion 3 support
 1.0.0 - first version of the plugin
