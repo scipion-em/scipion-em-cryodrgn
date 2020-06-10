@@ -28,6 +28,7 @@ import os
 import pwem
 import pyworkflow.utils as pwutils
 import pyworkflow as pw
+
 from .constants import *
 
 
@@ -92,11 +93,7 @@ class Plugin(pwem.Plugin):
                            'conda install -y pandas seaborn scikit-learn &&',
                            'conda install -y -c conda-forge umap-learn jupyterlab &&',
                            'pip install ipywidgets cufflinks &&',
-                           'git clone https://github.com/zhonge/cryodrgn.git cryodrgn-master &&',
-                           'cd cryodrgn-master &&',
-                           #'git checkout %s &&' % version,
-                           'pip install -e . &&',
-                           'cd .. &&'])
+                           'pip install -e . &&'])
 
         # Flag installation finished
         installCmd.append('touch %s' % CRYODRGN_INSTALLED)
@@ -106,8 +103,8 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
-        env.addPackage('cryoDRGN', version=version,
-                       tar='void.tgz',
+        env.addPackage('cryodrgn', version=version,
+                       url='https://github.com/zhonge/cryodrgn/archive/%s.tar.gz' % version,
                        commands=cryodrgn_commands,
                        neededProgs=cls.getDependencies(),
                        default=default,

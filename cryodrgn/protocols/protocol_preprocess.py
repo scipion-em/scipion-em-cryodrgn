@@ -27,13 +27,15 @@
 import os
 
 import pyworkflow.utils as pwutils
+from pyworkflow.plugin import Domain
 import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ
 from pwem.protocols import ProtProcessParticles
 
 from cryodrgn import Plugin
-import cryodrgn.convert as convert
-from ..convert.metadata import Table
+
+convert = Domain.importFromPlugin('relion.convert', doRaise=True)
+md = Domain.importFromPlugin('relion.convert.metadata', doRaise=True)
 
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
@@ -92,9 +94,9 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         """ Create a star file as expected by cryoDRGN."""
         imgSet = self.inputParticles.get()
         # Create links to binary files and write the relion .star file
-        writer = convert.Writer(outputDir=self._getExtraPath())
-        writer.writeSetOfParticles(imgSet, self._getFileName('input_parts'),
-                                   alignType=ALIGN_PROJ)
+        convert.writeSetOfParticles(
+            imgSet, self._getFileName('input_parts'),
+            outputDir=self._getExtraPath(), alignType=ALIGN_PROJ)
 
     def runDownSampleStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
@@ -135,7 +137,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         if not particles.hasCTF():
             errors.append("The input has no CTF values!")
 
-        if self.scaleSize.get() >= particles.getDim()[0]:
+        if self.doScale and self.scaleSize.get() >= particles.getDim()[0]:
             errors.append("You cannot upscale particles!")
 
         return errors
@@ -211,14 +213,14 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def _getExtraCtfParams(self):
         """Remove once optics parsing is implemented in parse_ctf_star"""
-        mdOptics = Table(fileName=self._getFileName('input_parts'),
+        mdOptics = md.Table(fileName=self._getFileName('input_parts'),
                          tableName='optics')[0]
         cs = mdOptics.rlnSphericalAberration
         amp = mdOptics.rlnAmplitudeContrast
         kv = mdOptics.rlnVoltage
 
-        mdParts = Table(fileName=self._getFileName('input_parts'),
-                        tableName='particles')[0]
+        mdParts = md.Table(fileName=self._getFileName('input_parts'),
+                           tableName='particles')[0]
         ps = getattr(mdParts, 'rlnCtfPhaseShift', 0.)
 
         return cs, amp, kv, ps
