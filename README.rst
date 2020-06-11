@@ -37,7 +37,7 @@ b) Developer's version
 
        scipion installp -p path_to_scipion-em-cryodrgn --devel
 
-cryoDRGN binaries will be installed automatically with the plugin at **software/em/cryoDRGN-0.2.1**, but you can also link an existing installation.
+cryoDRGN binaries will be installed automatically with the plugin at **software/em/cryoDRGN-0.2.1b**, but you can also link an existing installation.
 
 **Important:** you need to have conda (miniconda3 or anaconda3) pre-installed to use this program.
 
@@ -49,10 +49,10 @@ python with conda ones. One example of this could can be seen bellow but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYODRGN_HOME* (default = software/em/cryoDRGN-0.2.1):
+*CRYODRGN_HOME* (default = software/em/cryoDRGN-0.2.1b):
 Path where the cryoDRGN is installed.
 
-*CRYODRGN_ACTIVATION_CMD* (default = conda activate cryodrgn-0.2.1):
+*CRYODRGN_ACTIVATION_CMD* (default = conda activate cryodrgn-0.2.1b):
 Command to activate the cryoDRGN environment.
 
 
@@ -65,7 +65,7 @@ To check the installation, simply run the following Scipion test:
 Supported versions
 ------------------
 
-0.2.1
+0.2.1, 0.2.1b
 
 Protocols
 ----------
