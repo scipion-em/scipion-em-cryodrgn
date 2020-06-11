@@ -72,8 +72,9 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-        cls.addCryoDrgnPackage(env, CRYODRGN_DEFAULT_VER_NUM,
-                               default=bool(cls.getCondaActivationCmd()))
+        for ver in VERSIONS:
+            cls.addCryoDrgnPackage(env, ver,
+                                   default=bool(cls.getCondaActivationCmd()))
 
     @classmethod
     def addCryoDrgnPackage(cls, env, version, default=False):
