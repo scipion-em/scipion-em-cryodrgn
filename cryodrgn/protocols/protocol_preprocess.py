@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+from emtable import Table
 
 import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
@@ -35,7 +36,6 @@ from pwem.protocols import ProtProcessParticles
 from cryodrgn import Plugin
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
-md = Domain.importFromPlugin('relion.convert.metadata', doRaise=True)
 
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
@@ -213,14 +213,14 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def _getExtraCtfParams(self):
         """Remove once optics parsing is implemented in parse_ctf_star"""
-        mdOptics = md.Table(fileName=self._getFileName('input_parts'),
+        mdOptics = Table(fileName=self._getFileName('input_parts'),
                          tableName='optics')[0]
         cs = mdOptics.rlnSphericalAberration
         amp = mdOptics.rlnAmplitudeContrast
         kv = mdOptics.rlnVoltage
 
-        mdParts = md.Table(fileName=self._getFileName('input_parts'),
-                           tableName='particles')[0]
+        mdParts = Table(fileName=self._getFileName('input_parts'),
+                        tableName='particles')[0]
         ps = getattr(mdParts, 'rlnCtfPhaseShift', 0.)
 
         return cs, amp, kv, ps
