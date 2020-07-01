@@ -27,14 +27,13 @@
 import os
 from glob import glob
 import re
+from emtable import Table
 
 import pyworkflow.utils as pwutils
-from pyworkflow.plugin import Domain
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
 from cryodrgn import Plugin
-md = Domain.importFromPlugin('relion.convert.metadata', doRaise=True)
 
 
 class CryoDrgnProtTrain(ProtProcessParticles):
@@ -202,8 +201,8 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     def _getDataDir(self):
         """ We assume all mrcs stacks are in the same folder. """
-        mdOptics = md.Table(fileName=self._getFileName('input_parts'),
-                            tableName='particles')
+        mdOptics = Table(fileName=self._getFileName('input_parts'),
+                         tableName='particles')
         row = mdOptics[0]
         location = str(row.rlnImageName)
 

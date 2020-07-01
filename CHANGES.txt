@@ -1,3 +1,4 @@
+3.0.0b4 - switch to emtable, same as relion plugin
 3.0.0b3 - avoid using void for install, update to 0.2.1b, add relion as deps for convertions
 3.0.0b2 - fix installation bug
 3.0.0b1 - changed version to reflect Scipion 3 support
