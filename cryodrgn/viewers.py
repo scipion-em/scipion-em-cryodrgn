@@ -122,7 +122,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         volumes = self._getVolumeNames()
 
         if len(volumes) > 1:
-            cmdFile = self.protocol._getExtraPath('chimera_volumes.cmd')
+            cmdFile = self.protocol._getExtraPath('chimera_volumes.cxc')
             with open(cmdFile, 'w+') as f:
                 for vol in volumes:
                     localVol = os.path.basename(vol)
