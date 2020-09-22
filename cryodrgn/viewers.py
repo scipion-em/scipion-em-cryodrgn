@@ -32,8 +32,7 @@ from pyworkflow.protocol.params import LabelParam, EnumParam, IntParam
 from pyworkflow.protocol.executor import StepExecutor
 import pyworkflow.utils as pwutils
 from pyworkflow.viewer import DESKTOP_TKINTER
-from pwem.viewers import (ChimeraClientView, ObjectView,
-                          ChimeraView, EmProtocolViewer)
+from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
 from cryodrgn import Plugin
 from .protocols import CryoDrgnProtTrain
@@ -121,18 +120,14 @@ class CryoDrgnViewer(EmProtocolViewer):
         """ Create a chimera script to visualize selected volumes. """
         volumes = self._getVolumeNames()
 
-        if len(volumes) > 1:
-            cmdFile = self.protocol._getExtraPath('chimera_volumes.cmd')
-            with open(cmdFile, 'w+') as f:
-                for vol in volumes:
-                    localVol = os.path.basename(vol)
-                    if pwutils.exists(vol):
-                        f.write("open %s\n" % localVol)
-                f.write('tile\n')
-            view = ChimeraView(cmdFile)
-        else:
-            view = ChimeraClientView(volumes[0])
-
+        cmdFile = self.protocol._getExtraPath('chimera_volumes.cxc')
+        with open(cmdFile, 'w+') as f:
+            for vol in volumes:
+                localVol = os.path.basename(vol)
+                if pwutils.exists(vol):
+                    f.write("open %s\n" % localVol)
+            f.write('tile\n')
+        view = ChimeraView(cmdFile)
         return [view]
 
     def _createVolumesSqlite(self):

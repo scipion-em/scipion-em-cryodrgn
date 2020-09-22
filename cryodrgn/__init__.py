@@ -34,6 +34,7 @@ from .constants import *
 
 _references = ['Zhong2020a', 'Zhong2020b']
 _logo = "cryodrgn_logo.png"
+_url = "https://github.com/scipion-em/scipion-em-cryodrgn"
 
 
 class Plugin(pwem.Plugin):
@@ -74,7 +75,7 @@ class Plugin(pwem.Plugin):
     def defineBinaries(cls, env):
         for ver in VERSIONS:
             cls.addCryoDrgnPackage(env, ver,
-                                   default=bool(cls.getCondaActivationCmd()))
+                                   default=ver==CRYODRGN_DEFAULT_VER_NUM)
 
     @classmethod
     def addCryoDrgnPackage(cls, env, version, default=False):
