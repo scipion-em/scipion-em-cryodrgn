@@ -4,6 +4,27 @@ cryoDRGN plugin
 
 This plugin provide a wrapper around `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
 
+.. image:: https://img.shields.io/pypi/v/scipion-em-cryodrgn.svg
+        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
+        :alt: PyPI release
+
+.. image:: https://img.shields.io/pypi/l/scipion-em-cryodrgn.svg
+        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
+        :alt: License
+
+.. image:: https://img.shields.io/pypi/pyversions/scipion-em-cryodrgn.svg
+        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
+        :alt: Supported Python versions
+
+.. image:: https://img.shields.io/sonar/quality_gate/scipion-em_scipion-em-cryodrgn?server=https%3A%2F%2Fsonarcloud.io
+        :target: https://sonarcloud.io/dashboard?id=scipion-em_scipion-em-cryodrgn
+        :alt: SonarCloud quality gate
+
+.. image:: https://img.shields.io/pypi/dm/scipion-em-cryodrgn
+        :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
+        :alt: Downloads
+
+
 +--------------+----------------+
 | prod: |prod| | devel: |devel| |
 +--------------+----------------+

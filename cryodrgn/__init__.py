@@ -32,12 +32,13 @@ import pyworkflow as pw
 from .constants import *
 
 
+__version__ = '3.0.1'
 _references = ['Zhong2020a', 'Zhong2020b']
 _logo = "cryodrgn_logo.png"
-_url = "https://github.com/scipion-em/scipion-em-cryodrgn"
 
 
 class Plugin(pwem.Plugin):
+    _url = "https://github.com/scipion-em/scipion-em-cryodrgn"
     _supportedVersions = VERSIONS
 
     @classmethod
@@ -65,7 +66,7 @@ class Plugin(pwem.Plugin):
     def getDependencies(cls):
         # try to get CONDA activation command
         condaActivationCmd = cls.getCondaActivationCmd()
-        neededProgs = ['git']
+        neededProgs = []
         if not condaActivationCmd:
             neededProgs.append('conda')
 
@@ -75,7 +76,7 @@ class Plugin(pwem.Plugin):
     def defineBinaries(cls, env):
         for ver in VERSIONS:
             cls.addCryoDrgnPackage(env, ver,
-                                   default=ver==CRYODRGN_DEFAULT_VER_NUM)
+                                   default=ver == CRYODRGN_DEFAULT_VER_NUM)
 
     @classmethod
     def addCryoDrgnPackage(cls, env, version, default=False):
