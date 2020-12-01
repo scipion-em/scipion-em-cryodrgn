@@ -32,7 +32,7 @@ import pyworkflow as pw
 from .constants import *
 
 
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 _references = ['Zhong2020a', 'Zhong2020b']
 _logo = "cryodrgn_logo.png"
 
@@ -64,7 +64,8 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def getDependencies(cls):
-        # try to get CONDA activation command
+        """ Return a list of dependencies. Include conda if
+        activation command was not found. """
         condaActivationCmd = cls.getCondaActivationCmd()
         neededProgs = []
         if not condaActivationCmd:
@@ -114,9 +115,20 @@ class Plugin(pwem.Plugin):
                        vars=installEnvVars)
 
     @classmethod
-    def getProgram(cls, program):
+    def getProgram(cls, program, gpus='0'):
         """ Create cryoDRGN command line. """
-        fullProgram = '%s %s && cryodrgn %s' % (cls.getCondaActivationCmd(),
-                                                cls.getCryoDrgnEnvActivation(),
-                                                program)
+        fullProgram = '%s %s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
+            cls.getCondaActivationCmd(), cls.getCryoDrgnEnvActivation(),
+            gpus, program)
+
         return fullProgram
+
+    @classmethod
+    def getActiveVersion(cls, *args):
+        """ Return the env name that is currently active. """
+        envVar = cls.getVar(CRYODRGN_ENV_ACTIVATION)
+        return envVar.split()[-1]
+
+    @classmethod
+    def IS_V03(cls):
+        return cls.getActiveVersion().startswith(getCryoDrgnEnvName('0.3'))
