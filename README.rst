@@ -58,7 +58,7 @@ b) Developer's version
 
        scipion installp -p path_to_scipion-em-cryodrgn --devel
 
-cryoDRGN software will be installed automatically with the plugin at **software/em/cryoDRGN-0.3.0b**, but you can also link an existing installation.
+cryoDRGN software will be installed automatically with the plugin but you can also use an existing installation by providing *CRYODRGN_ENV_ACTIVATION* (see below).
 
 **Important:** you need to have conda (miniconda3 or anaconda3) pre-installed to use this program.
 
@@ -66,14 +66,11 @@ Configuration variables
 -----------------------
 *CONDA_ACTIVATION_CMD*: If undefined, it will rely on conda command being in the
 PATH (not recommended), which can lead to execution problems mixing scipion
-python with conda ones. One example of this could can be seen bellow but
+python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYODRGN_HOME* (default = software/em/cryoDRGN-0.3.0b):
-Path where the cryoDRGN is installed.
-
-*CRYODRGN_ACTIVATION_CMD* (default = conda activate cryodrgn-0.3.0b):
+*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-0.3.0b):
 Command to activate the cryoDRGN environment.
 
 
