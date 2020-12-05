@@ -50,9 +50,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         ProtProcessParticles.__init__(self, **kwargs)
 
     def _initialize(self):
-        """ This function is mean to be called after the
-        working dir for the protocol have been set. (maybe after recovery from mapper)
-        """
         self._createFilenameTemplates()
         self._createEpochTemplates()
 
@@ -81,6 +78,13 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         form.addSection(label='Input')
+        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
+                       label="Choose GPU IDs",
+                       help="GPU may have several cores. Set it to zero"
+                            " if you do not know what we are talking about."
+                            " First core index is 0, second 1 and so on."
+                            " You can use multiple GPUs - in that case"
+                            " set to i.e. *0 1 2*.")
         form.addParam('protPreprocess', params.PointerParam,
                       pointerClass="CryoDrgnProtPreprocess",
                       label='cryoDRGN preprocess protocol')
@@ -151,7 +155,8 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     def runTrainingStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
         params = ' '.join(self._getTrainingArgs())
-        program = Plugin.getProgram('train_vae')
+        gpus = ",".join(str(i) for i in self.getGpuList())
+        program = Plugin.getProgram('train_vae', gpus=gpus)
         self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
 
     def createOutputStep(self):
@@ -159,9 +164,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
-        summary = []
-
-        summary.append("Training VAE for %d epochs." % self.numEpochs.get())
+        summary = ["Training VAE for %d epochs." % self.numEpochs.get()]
 
         return summary
 
@@ -176,15 +179,30 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                 '--zdim %d' % self.zDim.get(),
                 '--poses %s' % self._getFileName('input_poses'),
                 '--ctf %s' % self._getFileName('input_ctf'),
-                '-n %d' % self.numEpochs.get(),
+                '-n %d' % self.numEpochs.get()
+                ]
+
+        if Plugin.IS_V03():
+            if len(self.getGpuList()) > 1:
+                args.append('--multigpu')
+            if not self.doInvert:
+                args.append('--uninvert-data')
+
+            args.extend([
+                '--enc-layers %d' % self.qLayers.get(),
+                '--enc-dim %d' % self.qDim.get(),
+                '--dec-layers %d' % self.pLayers.get(),
+                '--dec-dim %d' % self.pDim.get()
+            ])
+        else:
+            if self.doInvert:
+                args.append('--invert-data')
+            args.extend([
                 '--qlayers %d' % self.qLayers.get(),
                 '--qdim %d' % self.qDim.get(),
                 '--players %d' % self.pLayers.get(),
-                '--pdim %d' % self.pDim.get(),
-                ]
-
-        if self.doInvert:
-            args.append('--invert-data')
+                '--pdim %d' % self.pDim.get()
+            ])
 
         if self.extraParams.hasValue():
             args.append('%s' % self.extraParams.get())

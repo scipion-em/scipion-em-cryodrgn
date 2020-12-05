@@ -1,3 +1,4 @@
+3.0.2 - add version 0.3.0b support, add relion plugin dependency for preprocess protocol
 3.0.0 - add missing pip files, fix installation
 3.0.0b4 - switch to emtable, same as relion plugin
 3.0.0b3 - avoid using void for install, update to 0.2.1b, add relion as deps for convertions

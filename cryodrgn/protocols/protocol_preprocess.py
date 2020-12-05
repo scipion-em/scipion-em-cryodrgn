@@ -40,8 +40,7 @@ convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
-    """
-    Protocol to downsample a particle stack and prepare alignment/CTF parameters.
+    """ Protocol to downsample a particle stack and prepare alignment/CTF parameters.
 
     Find more information at https://github.com/zhonge/cryodrgn
     """

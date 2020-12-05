@@ -25,8 +25,6 @@
 # **************************************************************************
 
 import os
-import matplotlib.image as mpimg
-import matplotlib.pyplot as plt
 
 from pyworkflow.protocol.params import LabelParam, EnumParam, IntParam
 from pyworkflow.protocol.executor import StepExecutor
@@ -119,7 +117,6 @@ class CryoDrgnViewer(EmProtocolViewer):
     def _showVolumesChimera(self):
         """ Create a chimera script to visualize selected volumes. """
         volumes = self._getVolumeNames()
-
         cmdFile = self.protocol._getExtraPath('chimera_volumes.cxc')
         with open(cmdFile, 'w+') as f:
             for vol in volumes:
@@ -135,16 +132,14 @@ class CryoDrgnViewer(EmProtocolViewer):
         path = self.protocol._getExtraPath('viewer_volumes.sqlite')
         samplingRate = self.protocol._getSampling()
 
-        files = []
-        volumes = self._getVolumeNames()
-        for volFn in volumes:
-            print("Adding vol: %s" % volFn)
-            files.append(volFn)
+        files = [vol for vol in self._getVolumeNames()]
 
         self.createVolumesSqlite(files, path, samplingRate)
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
     def _showPlot(self, fn, epoch):
+        import matplotlib.image as mpimg
+        import matplotlib.pyplot as plt
         fn = self.protocol._getFileName(fn, epoch=epoch)
         if pwutils.exists(fn):
             img = mpimg.imread(fn)
@@ -162,6 +157,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         self._showPlot('output_dist', epoch=self._epoch)
 
     def _showNotebook(self, paramName=None):
+        """ Open jupyter notebook with results in a browser. """
         program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
         fn = self.protocol._getFileName('output_notebook',
                                         epoch=self._epoch)
@@ -178,7 +174,6 @@ class CryoDrgnViewer(EmProtocolViewer):
         else:
             self.showError('Jupyter notebook not found! Have you run analysis?')
 
-
     def _getVolumeNames(self):
         vols = []
         for volId in range(10):  # FIXME: is it always 10 volumes?
@@ -193,6 +188,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         return vols
 
     def _loadEpochs(self):
+        """ Get the epoch number for visualisation. """
         if self.viewEpoch.get() == EPOCH_LAST:
             self._epoch = self.protocol._lastIter()
             self.protocol._getEpochNumber(-1)
