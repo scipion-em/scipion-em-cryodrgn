@@ -182,9 +182,9 @@ class CryoDrgnViewer(EmProtocolViewer):
             if pwutils.exists(volFn):
                 vols.append(volFn)
             else:
-                raise Exception("Volume %s does not exists. \n"
-                                "Please select a valid epoch "
-                                "number OR *Run analysis!* first." % volFn)
+                raise FileNotFoundError("Volume %s does not exists. \n"
+                                        "Please select a valid epoch "
+                                        "number OR *Run analysis!* first." % volFn)
         return vols
 
     def _loadEpochs(self):
