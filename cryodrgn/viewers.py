@@ -28,7 +28,6 @@ import os
 
 from pyworkflow.protocol.params import LabelParam, EnumParam, IntParam
 from pyworkflow.protocol.executor import StepExecutor
-import pyworkflow.utils as pwutils
 from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
@@ -121,7 +120,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         with open(cmdFile, 'w+') as f:
             for vol in volumes:
                 localVol = os.path.basename(vol)
-                if pwutils.exists(vol):
+                if os.path.exists(vol):
                     f.write("open %s\n" % localVol)
             f.write('tile\n')
         view = ChimeraView(cmdFile)
@@ -141,7 +140,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         import matplotlib.image as mpimg
         import matplotlib.pyplot as plt
         fn = self.protocol._getFileName(fn, epoch=epoch)
-        if pwutils.exists(fn):
+        if os.path.exists(fn):
             img = mpimg.imread(fn)
             imgplot = plt.imshow(img)
             plt.axis('off')
@@ -163,7 +162,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                                         epoch=self._epoch)
         program.append('jupyter notebook %s' % os.path.basename(fn))
 
-        if pwutils.exists(fn):
+        if os.path.exists(fn):
             fnDir = os.path.dirname(fn)
             hostConfig = self.protocol.getHostConfig()
             executor = StepExecutor(hostConfig)
@@ -179,7 +178,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         for volId in range(10):  # FIXME: is it always 10 volumes?
             volFn = self.protocol._getFileName('output_vol', epoch=self._epoch,
                                                id=volId)
-            if pwutils.exists(volFn):
+            if os.path.exists(volFn):
                 vols.append(volFn)
             else:
                 raise FileNotFoundError("Volume %s does not exists. \n"

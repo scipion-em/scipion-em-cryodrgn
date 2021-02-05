@@ -146,7 +146,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         pwutils.createLink(protPrep._getFileName('output_ctf'),
                            self._getFileName('input_ctf'))
 
-        if pwutils.exists(protPrep._getFileName('output_parts')):
+        if os.path.exists(protPrep._getFileName('output_parts')):
             pwutils.createLink(protPrep._getFileName('output_parts'),
                                self._getFileName('input_stack'))
 
@@ -207,7 +207,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         if self.extraParams.hasValue():
             args.append('%s' % self.extraParams.get())
 
-        if pwutils.exists(self._getFileName('input_stack')):
+        if os.path.exists(self._getFileName('input_stack')):
             # input is a downsampled stack
             args.append('%s' % self._getFileName('input_stack'))
         else:
