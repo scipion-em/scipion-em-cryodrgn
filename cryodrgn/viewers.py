@@ -26,7 +26,8 @@
 
 import os
 
-from pyworkflow.protocol.params import LabelParam, EnumParam, IntParam
+from pyworkflow.protocol.params import (LabelParam, EnumParam,
+                                        IntParam, BooleanParam)
 from pyworkflow.protocol.executor import StepExecutor
 from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
@@ -75,22 +76,42 @@ class CryoDrgnViewer(EmProtocolViewer):
                        label='Display volume with',
                        help='*slices*: display volumes as 2D slices along z axis.\n'
                             '*chimera*: display volumes as surface with Chimera.')
-        group.addParam('doShowDistr', LabelParam,
-                       label='Show latent coordinates distribution')
-        group.addParam('doShowHistogram', LabelParam,
-                       label="Show latent coordinates histogram")
+        if self.hasMultLatentVars():
+            group.addParam('useHexBin', BooleanParam, default=False,
+                           label="Use hexagonal bins for the plots?")
+            group.addParam('doShowPCA', LabelParam,
+                           label='Show PCA projection of latent space encodings')
+            group.addParam('doShowUMAP', LabelParam,
+                           label="Show UMAP visualization of latent space encodings")
+        else:
+            group.addParam('doShowDistr', LabelParam,
+                           label='Show latent coordinates distribution')
+            group.addParam('doShowHistogram', LabelParam,
+                           label="Show latent coordinates histogram")
         group.addParam('doShowNotebook', LabelParam,
                        label="Show Jupyter notebook")
 
     def _getVisualizeDict(self):
         self.protocol._initialize()  # Load filename templates
         self._loadEpochs()
-        return {'runAnalyze': self._runAnalysis,
-                'displayVol': self._showVolumes,
+
+        visDict = {'runAnalyze': self._runAnalysis,
+                   'displayVol': self._showVolumes,
+                   'doShowNotebook': self._showNotebook
+                   }
+
+        if self.hasMultLatentVars():
+            visDict.update({
+                'doShowPCA': self._showPCA,
+                'doShowUMAP': self._showUMAP
+            })
+        else:
+            visDict.update({
                 'doShowDistr': self._showDistribution,
-                'doShowHistogram': self._showHistogram,
-                'doShowNotebook': self._showNotebook
-                }
+                'doShowHistogram': self._showHistogram
+            })
+
+        return visDict
 
     def _runAnalysis(self, paramName=None):
         program = Plugin.getProgram('analyze')
@@ -119,7 +140,8 @@ class CryoDrgnViewer(EmProtocolViewer):
         cmdFile = self.protocol._getExtraPath('chimera_volumes.cxc')
         with open(cmdFile, 'w+') as f:
             for vol in volumes:
-                localVol = os.path.basename(vol)
+                localVol = os.path.relpath(vol,
+                                           self.protocol._getExtraPath())
                 if os.path.exists(vol):
                     f.write("open %s\n" % localVol)
             f.write('tile\n')
@@ -130,8 +152,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         """ Write an sqlite with all volumes selected for visualization. """
         path = self.protocol._getExtraPath('viewer_volumes.sqlite')
         samplingRate = self.protocol._getSampling()
-
-        files = [vol for vol in self._getVolumeNames()]
+        files = self._getVolumeNames()
 
         self.createVolumesSqlite(files, path, samplingRate)
         return [ObjectView(self._project, self.protocol.strId(), path)]
@@ -155,29 +176,48 @@ class CryoDrgnViewer(EmProtocolViewer):
     def _showDistribution(self, paramName=None):
         self._showPlot('output_dist', epoch=self._epoch)
 
+    def _showPCA(self, paramName=None):
+        fn = 'output_pcahex' if self.useHexBin else 'output_pca'
+        self._showPlot(fn, epoch=self._epoch)
+
+    def _showUMAP(self, paramName=None):
+        fn = 'output_umaphex' if self.useHexBin else 'output_umap'
+        self._showPlot(fn, epoch=self._epoch)
+
     def _showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
-        program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
-        fn = self.protocol._getFileName('output_notebook',
-                                        epoch=self._epoch)
-        program.append('jupyter notebook %s' % os.path.basename(fn))
+        def _extraWork():
+            program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
+            fn = self.protocol._getFileName('output_notebook',
+                                            epoch=self._epoch)
+            program.append('jupyter notebook %s' % os.path.basename(fn))
 
-        if os.path.exists(fn):
-            fnDir = os.path.dirname(fn)
-            hostConfig = self.protocol.getHostConfig()
-            executor = StepExecutor(hostConfig)
-            self.protocol.setStepsExecutor(executor)
-            self.protocol.runJob(" ".join(program), '',
-                                 env=Plugin.getEnviron(),
-                                 cwd=fnDir)
-        else:
-            self.showError('Jupyter notebook not found! Have you run analysis?')
+            if os.path.exists(fn):
+                fnDir = os.path.dirname(fn)
+                hostConfig = self.protocol.getHostConfig()
+                executor = StepExecutor(hostConfig)
+                self.protocol.setStepsExecutor(executor)
+                self.protocol.runJob(" ".join(program), '',
+                                     env=Plugin.getEnviron(),
+                                     cwd=fnDir)
+            else:
+                self.showError('Jupyter notebook not found! Have you run analysis?')
+
+        from threading import Thread
+        thread = Thread(target=_extraWork)
+        thread.start()
 
     def _getVolumeNames(self):
         vols = []
-        for volId in range(10):  # FIXME: is it always 10 volumes?
-            volFn = self.protocol._getFileName('output_vol', epoch=self._epoch,
-                                               id=volId)
+        if self.hasMultLatentVars():
+            fn = 'output_volN'
+            num = 20
+        else:
+            fn = 'output_vol'
+            num = 10
+
+        for volId in range(num):
+            volFn = self.protocol._getFileName(fn, epoch=self._epoch, id=volId)
             if os.path.exists(volFn):
                 vols.append(volFn)
             else:
@@ -190,6 +230,8 @@ class CryoDrgnViewer(EmProtocolViewer):
         """ Get the epoch number for visualisation. """
         if self.viewEpoch.get() == EPOCH_LAST:
             self._epoch = self.protocol._lastIter()
-            self.protocol._getEpochNumber(-1)
         else:
             self._epoch = self.epochNum.get()
+
+    def hasMultLatentVars(self):
+        return self.protocol.zDim.get() > 1
