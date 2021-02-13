@@ -36,7 +36,7 @@ This plugin provide a wrapper around `cryoDRGN <https://github.com/zhonge/cryodr
 Installation
 -------------
 
-You will need to use `3.0 <https://github.com/I2PC/scipion/releases/tag/V3.0.0>`_ version of Scipion to be able to run these protocols. To install the plugin, you have two options:
+You will need to use 3.0+ version of Scipion to be able to run these protocols. To install the plugin, you have two options:
 
 a) Stable version
 
@@ -70,7 +70,7 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-0.3.0b):
+*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-0.3.1):
 Command to activate the cryoDRGN environment.
 
 
@@ -83,7 +83,7 @@ To check the installation, simply run the following Scipion test:
 Supported versions
 ------------------
 
-0.2.1b, 0.3.0b
+0.2.1b, 0.3.0b, 0.3.1
 
 Protocols
 ----------

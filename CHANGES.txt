@@ -1,3 +1,8 @@
+3.0.3:
+ - add version 0.3.1
+ - close #8, #9, #10
+ - run Jupyter notebook in a separate thread
+ - fix visualizing vols in ChimeraX
 3.0.2 - add version 0.3.0b support, add relion plugin dependency for preprocess protocol
 3.0.0 - add missing pip files, fix installation
 3.0.0b4 - switch to emtable, same as relion plugin

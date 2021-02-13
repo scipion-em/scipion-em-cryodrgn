@@ -27,7 +27,6 @@
 import os
 from emtable import Table
 
-import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import VERSION_3_0
 import pyworkflow.protocol.params as params
@@ -124,7 +123,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     def _summary(self):
         summary = []
         self._createFilenameTemplates()
-        if not pwutils.exists(self._getFileName("output_ctf")):
+        if not os.path.exists(self._getFileName("output_ctf")):
             summary.append("Output not ready")
         else:
             summary.append("Created poses and ctf files for cryoDRGN.")

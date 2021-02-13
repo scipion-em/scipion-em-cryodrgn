@@ -64,7 +64,12 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             'output_notebook': self._getExtraPath('output/analyze.%(epoch)d/cryoDRGN_viz.ipynb'),
             'output_hist': self._getExtraPath('output/analyze.%(epoch)d/z_hist.png'),
             'output_dist': self._getExtraPath('output/analyze.%(epoch)d/z.png'),
+            'output_umap': self._getExtraPath('output/analyze.%(epoch)d/umap.png'),
+            'output_umaphex': self._getExtraPath('output/analyze.%(epoch)d/umap_hexbin.png'),
+            'output_pca': self._getExtraPath('output/analyze.%(epoch)d/z_pca.png'),
+            'output_pcahex': self._getExtraPath('output/analyze.%(epoch)d/z_pca_hexbin.png'),
             'output_vol': self._getExtraPath('output/analyze.%(epoch)d/vol_%(id)03d.mrc'),
+            'output_volN': self._getExtraPath('output/analyze.%(epoch)d/kmeans20/vol_%(id)03d.mrc'),
             'output_z': self._getExtraPath('output/z.%(z)d.pkl')
         }
 
@@ -73,7 +78,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     def _createEpochTemplates(self):
         """ Setup the regex on how to find epochs. """
         self._epochTemplate = self._getFileName('output_z', z=0).replace('z.0', 'z.*')
-        self._epochRegex = re.compile('z.(\d).pkl')
+        self._epochRegex = re.compile('z\.(\d+)\.pkl')
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -146,7 +151,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         pwutils.createLink(protPrep._getFileName('output_ctf'),
                            self._getFileName('input_ctf'))
 
-        if pwutils.exists(protPrep._getFileName('output_parts')):
+        if os.path.exists(protPrep._getFileName('output_parts')):
             pwutils.createLink(protPrep._getFileName('output_parts'),
                                self._getFileName('input_stack'))
 
@@ -179,7 +184,8 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                 '--zdim %d' % self.zDim.get(),
                 '--poses %s' % self._getFileName('input_poses'),
                 '--ctf %s' % self._getFileName('input_ctf'),
-                '-n %d' % self.numEpochs.get()
+                '-n %d' % self.numEpochs.get(),
+                '--relion31 '
                 ]
 
         if Plugin.IS_V03():
@@ -207,7 +213,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         if self.extraParams.hasValue():
             args.append('%s' % self.extraParams.get())
 
-        if pwutils.exists(self._getFileName('input_stack')):
+        if os.path.exists(self._getFileName('input_stack')):
             # input is a downsampled stack
             args.append('%s' % self._getFileName('input_stack'))
         else:
@@ -231,12 +237,13 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     def _getEpochNumber(self, index):
         """ Return the list of epoch files, given the epochTemplate. """
         result = None
-        files = sorted(glob(self._epochTemplate))
+        files = sorted(glob(self._epochTemplate),
+                       key=lambda x: int(re.findall("z\.(\d+)\.", x)[0]))
         if files:
             f = files[index]
             s = self._epochRegex.search(f)
             if s:
-                result = int(s.group(1))  # group 1 is 1 digit epoch number
+                result = int(s.group(1))  # group 1 is a digit epoch number
         return result
 
     def _lastIter(self):

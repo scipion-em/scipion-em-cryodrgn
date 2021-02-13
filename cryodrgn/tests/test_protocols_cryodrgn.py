@@ -25,8 +25,8 @@
 # **************************************************************************
 
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
-from pwem.protocols import ProtImportParticles
 from pyworkflow.utils import magentaStr
+from pwem.protocols import ProtImportParticles
 
 from ..protocols import CryoDrgnProtPreprocess, CryoDrgnProtTrain
 
