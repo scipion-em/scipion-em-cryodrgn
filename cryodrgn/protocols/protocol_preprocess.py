@@ -28,7 +28,7 @@ import os
 from emtable import Table
 
 from pyworkflow.plugin import Domain
-from pyworkflow.constants import VERSION_3_0
+from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ
 from pwem.protocols import ProtProcessParticles
@@ -43,8 +43,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     Find more information at https://github.com/zhonge/cryodrgn
     """
-    _lastUpdateVersion = VERSION_3_0
     _label = 'preprocess'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)

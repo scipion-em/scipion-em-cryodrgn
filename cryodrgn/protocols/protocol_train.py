@@ -30,7 +30,7 @@ import re
 from emtable import Table
 
 import pyworkflow.utils as pwutils
-from pyworkflow.constants import VERSION_3_0
+from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
@@ -43,8 +43,8 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     Find more information at https://github.com/zhonge/cryodrgn
     """
-    _lastUpdateVersion = VERSION_3_0
     _label = 'training'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         ProtProcessParticles.__init__(self, **kwargs)
