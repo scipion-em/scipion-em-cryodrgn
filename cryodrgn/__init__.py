@@ -107,8 +107,9 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
+        tarPrefix = VERSION_PREFIX.get(version, '')
         env.addPackage('cryodrgn', version=version,
-                       url='https://github.com/zhonge/cryodrgn/archive/%s.tar.gz' % version,
+                       url='https://github.com/zhonge/cryodrgn/archive/%s%s.tar.gz' % (tarPrefix, version),
                        commands=cryodrgn_commands,
                        neededProgs=cls.getDependencies(),
                        default=default,
