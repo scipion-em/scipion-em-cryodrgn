@@ -56,10 +56,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
         myDict = {
-            'input_parts': self._getExtraPath('input_particles.star'),
-            'input_stack': self._getExtraPath('downsampled_parts.mrcs'),
-            'input_poses': self._getExtraPath('pose.pkl'),
-            'input_ctf': self._getExtraPath('ctf.pkl'),
             'output_dir': self._getExtraPath('output'),
             'output_notebook': self._getExtraPath('output/analyze.%(epoch)d/cryoDRGN_viz.ipynb'),
             'output_hist': self._getExtraPath('output/analyze.%(epoch)d/z_hist.png'),
@@ -90,9 +86,11 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                             " First core index is 0, second 1 and so on."
                             " You can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
-        form.addParam('protPreprocess', params.PointerParam,
-                      pointerClass="CryoDrgnProtPreprocess",
-                      label='cryoDRGN preprocess protocol')
+
+        form.addParam('inputParticles', params.PointerParam,
+                      pointerClass="CryoDrgnParticles",
+                      label='CryoDrgn particles')
+
         form.addParam('zDim', params.IntParam, default=1,
                       validators=[params.Positive],
                       label='Dimension of latent variable',
@@ -142,27 +140,19 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
         """ Copy files as expected by cryoDRGN."""
-        protPrep = self.protPreprocess.get()
-        protPrep._createFilenameTemplates()
-        pwutils.createLink(protPrep._getFileName('input_parts'),
-                           self._getFileName('input_parts'))
-        pwutils.createLink(protPrep._getFileName('output_poses'),
-                           self._getFileName('input_poses'))
-        pwutils.createLink(protPrep._getFileName('output_ctf'),
-                           self._getFileName('input_ctf'))
+        # if os.path.exists(protPrep._getFileName('output_parts')):
+        #     pwutils.createLink(protPrep._getFileName('output_parts'),
+        #                        self._getFileName('input_stack'))
 
-        if os.path.exists(protPrep._getFileName('output_parts')):
-            pwutils.createLink(protPrep._getFileName('output_parts'),
-                               self._getFileName('input_stack'))
-
+        pwutils.cleanPath(self._getFileName('output_dir'))
         pwutils.makePath(self._getFileName('output_dir'))
 
     def runTrainingStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
         params = ' '.join(self._getTrainingArgs())
-        gpus = ",".join(str(i) for i in self.getGpuList())
+        gpus = ','.join(str(i) for i in self.getGpuList())
         program = Plugin.getProgram('train_vae', gpus=gpus)
-        self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
+        self.runJob(program, params)
 
     def createOutputStep(self):
         pass
@@ -180,13 +170,17 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     # --------------------------- UTILS functions -----------------------------
     def _getTrainingArgs(self):
-        args = ['-o %s ' % self._getFileName('output_dir'),
-                '--zdim %d' % self.zDim.get(),
-                '--poses %s' % self._getFileName('input_poses'),
-                '--ctf %s' % self._getFileName('input_ctf'),
-                '-n %d' % self.numEpochs.get(),
-                '--relion31 '
-                ]
+        parts = self.inputParticles.get()
+
+        args = [
+            parts.filename.get(),
+            '--poses %s' % parts.poses,
+            '--ctf %s' % parts.ctfs,
+            '-o %s ' % self._getFileName('output_dir'),
+            '--zdim %d' % self.zDim,
+            '-n %d' % self.numEpochs,
+            '--relion31 '
+        ]
 
         if Plugin.IS_V03():
             if len(self.getGpuList()) > 1:
@@ -195,33 +189,33 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                 args.append('--uninvert-data')
 
             args.extend([
-                '--enc-layers %d' % self.qLayers.get(),
-                '--enc-dim %d' % self.qDim.get(),
-                '--dec-layers %d' % self.pLayers.get(),
-                '--dec-dim %d' % self.pDim.get()
+                '--enc-layers %d' % self.qLayers,
+                '--enc-dim %d' % self.qDim,
+                '--dec-layers %d' % self.pLayers,
+                '--dec-dim %d' % self.pDim
             ])
-        else:
+        else:  # TODO: Deprecate?
             if self.doInvert:
                 args.append('--invert-data')
             args.extend([
-                '--qlayers %d' % self.qLayers.get(),
-                '--qdim %d' % self.qDim.get(),
-                '--players %d' % self.pLayers.get(),
-                '--pdim %d' % self.pDim.get()
+                '--qlayers %d' % self.qLayers,
+                '--qdim %d' % self.qDim,
+                '--players %d' % self.pLayers,
+                '--pdim %d' % self.pDim
             ])
 
-        if self.extraParams.hasValue():
-            args.append('%s' % self.extraParams.get())
-
-        if os.path.exists(self._getFileName('input_stack')):
-            # input is a downsampled stack
-            args.append('%s' % self._getFileName('input_stack'))
-        else:
-            # input is a star file
-            args.extend([
-                '--datadir %s' % self._getDataDir(),
-                '%s' % self._getFileName('input_parts')
-            ])
+        # if self.extraParams.hasValue():
+        #     args.append('%s' % self.extraParams.get())
+        #
+        # if os.path.exists(self._getFileName('input_stack')):
+        #     # input is a downsampled stack
+        #     args.append('%s' % self._getFileName('input_stack'))
+        # else:
+        #     # input is a star file
+        #     args.extend([
+        #         '--datadir %s' % self._getDataDir(),
+        #         '%s' % self._getFileName('input_parts')
+        #     ])
 
         return args
 
@@ -248,6 +242,3 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     def _lastIter(self):
         return self._getEpochNumber(-1)
-
-    def _getSampling(self):
-        return self.protPreprocess.get()._getSamplingRate()
