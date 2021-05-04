@@ -129,7 +129,3 @@ class Plugin(pwem.Plugin):
         """ Return the env name that is currently active. """
         envVar = cls.getVar(CRYODRGN_ENV_ACTIVATION)
         return envVar.split()[-1]
-
-    @classmethod
-    def IS_V03(cls):
-        return cls.getActiveVersion().startswith(getCryoDrgnEnvName('0.3'))

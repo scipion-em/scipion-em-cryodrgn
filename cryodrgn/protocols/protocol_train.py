@@ -140,10 +140,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
         """ Copy files as expected by cryoDRGN."""
-        # if os.path.exists(protPrep._getFileName('output_parts')):
-        #     pwutils.createLink(protPrep._getFileName('output_parts'),
-        #                        self._getFileName('input_stack'))
-
         pwutils.cleanPath(self._getFileName('output_dir'))
         pwutils.makePath(self._getFileName('output_dir'))
 
@@ -182,40 +178,17 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--relion31 '
         ]
 
-        if Plugin.IS_V03():
-            if len(self.getGpuList()) > 1:
-                args.append('--multigpu')
-            if not self.doInvert:
-                args.append('--uninvert-data')
+        if len(self.getGpuList()) > 1:
+            args.append('--multigpu')
+        if not self.doInvert:
+            args.append('--uninvert-data')
 
-            args.extend([
-                '--enc-layers %d' % self.qLayers,
-                '--enc-dim %d' % self.qDim,
-                '--dec-layers %d' % self.pLayers,
-                '--dec-dim %d' % self.pDim
-            ])
-        else:  # TODO: Deprecate?
-            if self.doInvert:
-                args.append('--invert-data')
-            args.extend([
-                '--qlayers %d' % self.qLayers,
-                '--qdim %d' % self.qDim,
-                '--players %d' % self.pLayers,
-                '--pdim %d' % self.pDim
-            ])
-
-        # if self.extraParams.hasValue():
-        #     args.append('%s' % self.extraParams.get())
-        #
-        # if os.path.exists(self._getFileName('input_stack')):
-        #     # input is a downsampled stack
-        #     args.append('%s' % self._getFileName('input_stack'))
-        # else:
-        #     # input is a star file
-        #     args.extend([
-        #         '--datadir %s' % self._getDataDir(),
-        #         '%s' % self._getFileName('input_parts')
-        #     ])
+        args.extend([
+            '--enc-layers %d' % self.qLayers,
+            '--enc-dim %d' % self.qDim,
+            '--dec-layers %d' % self.pLayers,
+            '--dec-dim %d' % self.pDim
+        ])
 
         return args
 

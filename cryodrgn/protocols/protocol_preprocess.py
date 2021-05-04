@@ -120,23 +120,14 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def runDownSampleStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
-        # params = ' '.join(self._getDownsampleArgs())
-        # program = Plugin.getProgram('downsample')
-        # self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
         self._runProgram('downsample', self._getDownsampleArgs())
 
     def runParsePosesStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
-        # params = ' '.join(self._getParsePosesArgs())
-        # program = Plugin.getProgram('parse_pose_star')
-        # self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
         self._runProgram('parse_pose_star', self._getParsePosesArgs())
 
     def runParseCtfStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
-        # params = ' '.join(self._getParseCtfArgs())
-        # program = Plugin.getProgram('parse_ctf_star')
-        # self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
         self._runProgram('parse_ctf_star', self._getParseCtfArgs())
 
     def createOutputStep(self):
