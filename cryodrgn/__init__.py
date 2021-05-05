@@ -116,11 +116,16 @@ class Plugin(pwem.Plugin):
                        vars=installEnvVars)
 
     @classmethod
+    def getActivationCmd(cls):
+        """ Return the activation command. """
+        return '%s %s' % (cls.getCondaActivationCmd(),
+                          cls.getCryoDrgnEnvActivation())
+
+    @classmethod
     def getProgram(cls, program, gpus='0'):
         """ Create cryoDRGN command line. """
-        fullProgram = '%s %s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
-            cls.getCondaActivationCmd(), cls.getCryoDrgnEnvActivation(),
-            gpus, program)
+        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
+            cls.getActivationCmd(), gpus, program)
 
         return fullProgram
 

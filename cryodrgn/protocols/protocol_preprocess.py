@@ -48,14 +48,10 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     _lastUpdateVersion = VERSION_3_0
     _label = 'preprocess'
 
-    def __init__(self, **kwargs):
-        ProtProcessParticles.__init__(self, **kwargs)
-
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
         def out(*p):
             return os.path.join(self._getPath('output_particles'), *p)
-
 
         myDict = {
             'input_parts': self._getExtraPath('input_particles.star'),

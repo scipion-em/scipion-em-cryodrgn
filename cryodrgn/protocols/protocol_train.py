@@ -25,9 +25,6 @@
 # **************************************************************************
 
 import os
-from glob import glob
-import re
-from emtable import Table
 
 import pyworkflow.utils as pwutils
 from pyworkflow.constants import VERSION_3_0
@@ -35,6 +32,7 @@ import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
 from cryodrgn import Plugin
+from cryodrgn.constants import *
 
 
 class CryoDrgnProtTrain(ProtProcessParticles):
@@ -45,36 +43,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     """
     _lastUpdateVersion = VERSION_3_0
     _label = 'training'
-
-    def __init__(self, **kwargs):
-        ProtProcessParticles.__init__(self, **kwargs)
-
-    def _initialize(self):
-        self._createFilenameTemplates()
-        self._createEpochTemplates()
-
-    def _createFilenameTemplates(self):
-        """ Centralize how files are called. """
-        myDict = {
-            'output_dir': self._getExtraPath('output'),
-            'output_notebook': self._getExtraPath('output/analyze.%(epoch)d/cryoDRGN_viz.ipynb'),
-            'output_hist': self._getExtraPath('output/analyze.%(epoch)d/z_hist.png'),
-            'output_dist': self._getExtraPath('output/analyze.%(epoch)d/z.png'),
-            'output_umap': self._getExtraPath('output/analyze.%(epoch)d/umap.png'),
-            'output_umaphex': self._getExtraPath('output/analyze.%(epoch)d/umap_hexbin.png'),
-            'output_pca': self._getExtraPath('output/analyze.%(epoch)d/z_pca.png'),
-            'output_pcahex': self._getExtraPath('output/analyze.%(epoch)d/z_pca_hexbin.png'),
-            'output_vol': self._getExtraPath('output/analyze.%(epoch)d/vol_%(id)03d.mrc'),
-            'output_volN': self._getExtraPath('output/analyze.%(epoch)d/kmeans20/vol_%(id)03d.mrc'),
-            'output_z': self._getExtraPath('output/z.%(z)d.pkl')
-        }
-
-        self._updateFilenamesDict(myDict)
-
-    def _createEpochTemplates(self):
-        """ Setup the regex on how to find epochs. """
-        self._epochTemplate = self._getFileName('output_z', z=0).replace('z.0', 'z.*')
-        self._epochRegex = re.compile('z\.(\d+)\.pkl')
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -130,32 +98,41 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                       help="Here you can provide all extra command-line "
                            "parameters. See *cryodrgn train_vae -h* for help.")
 
+        form.addSection(label='Analysis')
+
+        form.addParam('viewEpoch', params.EnumParam,
+                      choices=['last', 'selection'], default=EPOCH_LAST,
+                      display=params.EnumParam.DISPLAY_LIST,
+                      label="Epoch to analyze")
+        form.addParam('epochNum', params.IntParam,
+                      condition='viewEpoch==%d' % EPOCH_SELECTION,
+                      label="Epoch number")
+
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._initialize()
-        self._insertFunctionStep('convertInputStep')
+        # self._initialize()
         self._insertFunctionStep('runTrainingStep')
-        self._insertFunctionStep('createOutputStep')
+        if self.viewEpoch == EPOCH_LAST:
+            epoch = self.numEpochs.get() - 1
+        else:
+            epoch = self.epochNum.get()
+        self._insertFunctionStep('runAnalysisStep', epoch)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self):
-        """ Copy files as expected by cryoDRGN."""
-        pwutils.cleanPath(self._getFileName('output_dir'))
-        pwutils.makePath(self._getFileName('output_dir'))
-
     def runTrainingStep(self):
-        """ Call cryoDRGN with the appropriate parameters. """
-        params = ' '.join(self._getTrainingArgs())
-        gpus = ','.join(str(i) for i in self.getGpuList())
-        program = Plugin.getProgram('train_vae', gpus=gpus)
-        self.runJob(program, params)
+        # Create output folder
+        pwutils.cleanPath(self.getOutputDir())
+        pwutils.makePath(self.getOutputDir())
 
-    def createOutputStep(self):
-        pass
+        # Call cryoDRGN with the appropriate parameters.
+        self._runProgram('train_vae', self._getTrainingArgs())
+
+    def runAnalysisStep(self, epoch):
+        self._runProgram('analyze', self._getAnalyzeArgs(epoch))
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
-        summary = ["Training VAE for %d epochs." % self.numEpochs.get()]
+        summary = ["Training VAE for %d epochs." % self.numEpochs]
 
         return summary
 
@@ -172,14 +149,15 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             parts.filename.get(),
             '--poses %s' % parts.poses,
             '--ctf %s' % parts.ctfs,
-            '-o %s ' % self._getFileName('output_dir'),
             '--zdim %d' % self.zDim,
+            '-o %s ' % self.getOutputDir(),
             '-n %d' % self.numEpochs,
             '--relion31 '
         ]
 
         if len(self.getGpuList()) > 1:
             args.append('--multigpu')
+
         if not self.doInvert:
             args.append('--uninvert-data')
 
@@ -192,26 +170,28 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
         return args
 
-    def _getDataDir(self):
-        """ We assume all mrcs stacks are in the same folder. """
-        mdOptics = Table(fileName=self._getFileName('input_parts'),
-                         tableName='particles')
-        row = mdOptics[0]
-        location = str(row.rlnImageName)
+    def _getAnalyzeArgs(self, epoch):
+        return [
+            self.getOutputDir(),
+            str(epoch),
+            '--Apix %0.3f' % self.inputParticles.get().getSamplingRate()
+        ]
 
-        return os.path.dirname(location.split('@')[1])
+    def _runProgram(self, program, args, useGpu=True):
+        gpus = ','.join(str(i) for i in self.getGpuList())
+        self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
 
-    def _getEpochNumber(self, index):
-        """ Return the list of epoch files, given the epochTemplate. """
-        result = None
-        files = sorted(glob(self._epochTemplate),
-                       key=lambda x: int(re.findall("z\.(\d+)\.", x)[0]))
-        if files:
-            f = files[index]
-            s = self._epochRegex.search(f)
-            if s:
-                result = int(s.group(1))  # group 1 is a digit epoch number
-        return result
+    def getOutputDir(self):
+        return self._getPath('output')
 
-    def _lastIter(self):
-        return self._getEpochNumber(-1)
+    def getEpochZFile(self, epoch):
+        return os.path.join(self.getOutputDir(), 'z.%d.pkl' % epoch)
+
+    def getLastEpoch(self):
+        epoch = -1
+
+        while os.path.exists(self.getEpochZFile(epoch + 1)):
+            epoch += 1
+
+        return epoch
+
