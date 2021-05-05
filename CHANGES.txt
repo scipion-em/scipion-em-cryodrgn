@@ -1,3 +1,4 @@
+3.0.4 - minor changes
 3.0.3:
  - add version 0.3.1
  - close #8, #9, #10
