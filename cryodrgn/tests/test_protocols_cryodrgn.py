@@ -24,6 +24,8 @@
 # *
 # **************************************************************************
 
+import os
+
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 from pwem.protocols import ProtImportParticles
@@ -54,22 +56,51 @@ class TestCryoDrgn(BaseTest):
         cls.dataset = DataSet.getDataSet('relion_tutorial')
         cls.partFn = cls.dataset.getFile('import/refine3d_case2/relion_data.star')
         cls.protImport = cls.runImportParticlesStar(cls.partFn, 50000, 3.54)
-        cls.protPreprocess = cls.runPreprocess(cls.protImport.outputParticles)
+        # cls.protPreprocess = cls.runPreprocess(cls.protImport.outputParticles)
 
-    @classmethod
-    def runPreprocess(cls, particles):
+    def runPreprocess(self, particles, **kwargs):
         print(magentaStr("\n==> Testing cryoDRGN - preprocess:"))
-        protPreprocess = cls.newProtocol(CryoDrgnProtPreprocess,
-                                         scaleSize=64)
-        protPreprocess._createFilenameTemplates()
+        protPreprocess = self.newProtocol(CryoDrgnProtPreprocess, **kwargs)
+        # protPreprocess._createFilenameTemplates()
         protPreprocess.inputParticles.set(particles)
-        cls.launchProtocol(protPreprocess)
+        return self.launchProtocol(protPreprocess)
 
-        return protPreprocess
+    def checkPreprocessOutput(self, preprocessProt):
+        """ Do some check on the output of the preprocess. """
+        output = getattr(preprocessProt, 'outputCryoDrgnParticles', None)
+        self.assertIsNotNone(output)
+
+        filename = output.filename.get()
+        poses = output.poses.get()
+        ctfs = output.ctfs.get()
+
+        for f in [filename, poses, ctfs]:
+            fn = os.path.join(self.proj.path, f)
+            self.assertTrue(os.path.exists(fn))
+
+        if preprocessProt.chunk > 0:
+            self.assertTrue(filename.endswith('.txt'))
+
+        else:
+            self.assertTrue(filename.endswith('.mrcs'))
+
+    def testProprocess(self):
+        parts = self.protImport.outputParticles
+
+        preprocess1 = self.runPreprocess(parts, scaleSize=64)
+        self.checkPreprocessOutput(preprocess1)
+
+        preprocess2 = self.runPreprocess(parts, scaleSize=50, chunk=200)
+        self.checkPreprocessOutput(preprocess2)
 
     def testTraining(self):
+        parts = self.protImport.outputParticles
+
+        preprocess = self.runPreprocess(parts, scaleSize=64)
+
         print(magentaStr("\n==> Testing cryoDRGN - training:"))
+
         protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3)
-        protTrain._createFilenameTemplates()
-        protTrain.protPreprocess.set(self.protPreprocess)
+        protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
         self.launchProtocol(protTrain)
+

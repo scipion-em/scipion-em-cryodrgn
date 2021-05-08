@@ -27,13 +27,15 @@
 import os
 from emtable import Table
 
+import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
-from pyworkflow.constants import VERSION_3_0
+from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ
 from pwem.protocols import ProtProcessParticles
 
 from cryodrgn import Plugin
+from cryodrgn.objects import CryoDrgnParticles
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
@@ -43,19 +45,20 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     Find more information at https://github.com/zhonge/cryodrgn
     """
-    _lastUpdateVersion = VERSION_3_0
     _label = 'preprocess'
-
-    def __init__(self, **kwargs):
-        ProtProcessParticles.__init__(self, **kwargs)
+    _devStatus = BETA
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
+        def out(*p):
+            return os.path.join(self._getPath('output_particles'), *p)
+
         myDict = {
             'input_parts': self._getExtraPath('input_particles.star'),
-            'output_parts': self._getExtraPath('downsampled_parts.mrcs'),
-            'output_poses': self._getExtraPath('pose.pkl'),
-            'output_ctf': self._getExtraPath('ctf.pkl'),
+            'output_folder': out(),
+            'output_parts': out('particles.%d.mrcs' % self._getBoxSize()),
+            'output_poses': out('poses.pkl'),
+            'output_ctfs': out('ctfs.pkl'),
         }
 
         self._updateFilenamesDict(myDict)
@@ -67,7 +70,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       pointerClass='SetOfParticles',
                       pointerCondition='hasAlignmentProj',
                       label="Input particles", important=True,
-                      help='Select a set of particles from a consensus '
+                      help='Select a set of particles from a consensus C1 '
                            '3D refinement.')
         form.addParam('doScale', params.BooleanParam, default=True,
                       label='Downsample particles?')
@@ -76,6 +79,15 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       validators=[params.Positive],
                       label='New box size (px)',
                       help='New box size in pixels, must be even.')
+
+        form.addParam('chunk', params.IntParam, default=0,
+                      label='Split in chunks',
+                      help='If this value is greater than 0, the output stack'
+                           'will be saved into parts of this size. This will '
+                           'avoid out-of-memory errors when saving out a large '
+                           'particle stack. (param **--chunk**)\n'
+                           'For example, use --chunk 50000 to chunk the output '
+                           'into separate .mrcs with 50k images each. ')
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
@@ -92,6 +104,10 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
         """ Create a star file as expected by cryoDRGN."""
+        outputFolder = self._getFileName('output_folder')
+        pwutils.cleanPath(outputFolder)
+        pwutils.makePath(outputFolder)
+
         imgSet = self.inputParticles.get()
         # Create links to binary files and write the relion .star file
         convert.writeSetOfParticles(
@@ -100,30 +116,34 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def runDownSampleStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
-        params = ' '.join(self._getDownsampleArgs())
-        program = Plugin.getProgram('downsample')
-        self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
+        self._runProgram('downsample', self._getDownsampleArgs())
 
     def runParsePosesStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
-        params = ' '.join(self._getParsePosesArgs())
-        program = Plugin.getProgram('parse_pose_star')
-        self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
+        self._runProgram('parse_pose_star', self._getParsePosesArgs())
 
     def runParseCtfStep(self):
         """ Call cryoDRGN with the appropriate parameters. """
-        params = ' '.join(self._getParseCtfArgs())
-        program = Plugin.getProgram('parse_ctf_star')
-        self.runJob(program, params, env=Plugin.getEnviron(), cwd=None)
+        self._runProgram('parse_ctf_star', self._getParseCtfArgs())
 
     def createOutputStep(self):
-        pass
+        outputParts = self._getFileName('output_parts')
+        if self.chunk > 0:
+            outputParts = outputParts.replace('.mrcs', '.txt')
+
+        output = CryoDrgnParticles(filename=outputParts,
+                                   poses=self._getFileName('output_poses'),
+                                   ctfs=self._getFileName('output_ctfs'),
+                                   dim=self._getBoxSize(),
+                                   samplingRate=self._getSamplingRate())
+
+        self._defineOutputs(outputCryoDrgnParticles=output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         self._createFilenameTemplates()
-        if not os.path.exists(self._getFileName("output_ctf")):
+        if not os.path.exists(self._getFileName("output_ctfs")):
             summary.append("Output not ready")
         else:
             summary.append("Created poses and ctf files for cryoDRGN.")
@@ -150,7 +170,10 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                 '--relion31']
 
         if self.doScale:
-            args.append('-D %d ' % self.scaleSize.get())
+            args.append('-D %d ' % self.scaleSize)
+
+        if self.chunk > 0:
+            args.append('--chunk %d ' % self.chunk)
 
         return args
 
@@ -165,7 +188,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def _getParseCtfArgs(self):
         args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_ctf'),
+                '-o %s ' % self._getFileName('output_ctfs'),
                 '-D %d' % self._getBoxSize(),
                 '--Apix %0.3f' % self._getSamplingRate(),
                 '--relion31']
@@ -187,7 +210,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         if self.doScale:
             return self.scaleSize.get()
         else:
-            return self._getInputParticles().getDim()[0]
+            return self._getInputParticles().getXDim()
 
     def _getSamplingRate(self):
         inputSet = self._getInputParticles()
@@ -224,3 +247,6 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         ps = getattr(mdParts, 'rlnCtfPhaseShift', 0.)
 
         return cs, amp, kv, ps
+
+    def _runProgram(self, program, args):
+        self.runJob(Plugin.getProgram(program), ' '.join(args))
