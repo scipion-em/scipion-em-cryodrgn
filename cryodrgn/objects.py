@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     J.M. de la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] SciLifeLab, Stockholm University
+# * [2] MRC Laboratory of Molecular Biology, MRC-LMB
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,29 +26,28 @@
 # *
 # **************************************************************************
 
+import pyworkflow.object as pwobj
+from pwem.objects import EMObject
 
-def getCryoDrgnEnvName(version):
-    return "cryodrgn-%s" % version
 
+class CryoDrgnParticles(EMObject):
 
-V0_3_0b = "0.3.0b"
-V0_3_1 = "0.3.1"
-V0_3_2 = "0.3.2"
+    def __init__(self, filename=None, poses=None, ctfs=None,
+                 dim=None, samplingRate=None, **kwargs):
+        EMObject.__init__(self, **kwargs)
 
-VERSIONS = [V0_3_0b, V0_3_1, V0_3_2]
-# They set release tag to 'v0.3.2' instead of '0.3.2' since that version
-VERSION_PREFIX = {
-    V0_3_2: 'v'
-}
-CRYODRGN_DEFAULT_VER_NUM = VERSIONS[-1]
+        self.filename = pwobj.String(filename)
+        self.poses = pwobj.String(poses)
+        self.ctfs = pwobj.String(ctfs)
+        self.samplingRate = pwobj.Float(samplingRate)
+        self.dim = pwobj.Integer(dim)
 
-DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)
-DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
-CRYODRGN_ENV_ACTIVATION = 'CRYODRGN_ENV_ACTIVATION'
+    def __str__(self):
+        return 'CryoDrgnParticles: dim=%dpx %0.3f' % (self.dim,
+                                                      self.samplingRate)
 
-# Viewer constants
-EPOCH_LAST = 0
-EPOCH_SELECTION = 1
+    def getSamplingRate(self):
+        return self.samplingRate.get()
 
-VOLUME_SLICES = 0
-VOLUME_CHIMERA = 1
+    def getXDim(self):
+        return self.dim.get()

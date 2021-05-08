@@ -39,13 +39,34 @@ from .constants import *
 
 class CryoDrgnViewer(EmProtocolViewer):
     """ Visualization of cryoDRGN results. """
-           
+
     _environments = [DESKTOP_TKINTER]
     _targets = [CryoDrgnProtTrain]
     _label = 'analyze results'
 
     def __init__(self, **kwargs):
         EmProtocolViewer.__init__(self, **kwargs)
+
+    def _createFilenameTemplates(self):
+        """ Centralize how files are called. """
+        prot = self.protocol
+        self._epoch = self.getEpoch()
+        epochDir = os.path.join(prot.getOutputDir(), 'analyze.%d' % self._epoch)
+
+        def _out(f):
+            return os.path.join(epochDir, f)
+
+        self._updateFilenamesDict({
+            'output_notebook': _out('cryoDRGN_viz.ipynb'),
+            'output_hist': _out('z_hist.png'),
+            'output_dist': _out('z.png'),
+            'output_umap': _out('umap.png'),
+            'output_umaphex': _out('umap_hexbin.png'),
+            'output_pca': _out('z_pca.png'),
+            'output_pcahex': _out('z_pca_hexbin.png'),
+            'output_vol': _out('vol_%(id)03d.mrc'),
+            'output_volN': _out('kmeans20/vol_%(id)03d.mrc'),
+        })
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
@@ -56,49 +77,36 @@ class CryoDrgnViewer(EmProtocolViewer):
         form.addParam('epochNum', IntParam,
                       condition='viewEpoch==%d' % EPOCH_SELECTION,
                       label="Epoch number")
-        form.addParam('runAnalyze', LabelParam, important=True,
-                      label="RUN ANALYSIS!",
-                      help="This script runs a series of standard analyses:\n\n"
-                           "- PCA of the latent space\n"
-                           "- UMAP embedding of the latent space\n"
-                           "- Generation of volumes from the latent space\n"
-                           "- Generation of trajectories along the first "
-                           "and second principal components\n"
-                           "- Generation of a template jupyter notebook "
-                           "that may be used for further interactive "
-                           "analyses and visualization")
 
-        group = form.addGroup('Visualize')
-        group.addParam('displayVol', EnumParam,
-                       choices=['slices', 'chimera'],
-                       default=VOLUME_SLICES,
-                       display=EnumParam.DISPLAY_HLIST,
-                       label='Display volume with',
-                       help='*slices*: display volumes as 2D slices along z axis.\n'
-                            '*chimera*: display volumes as surface with Chimera.')
+        form.addParam('displayVol', EnumParam,
+                      choices=['slices', 'chimera'],
+                      default=VOLUME_SLICES,
+                      display=EnumParam.DISPLAY_HLIST,
+                      label='Display volume with',
+                      help='*slices*: display volumes as 2D slices along z axis.\n'
+                           '*chimera*: display volumes as surface with Chimera.')
         if self.hasMultLatentVars():
-            group.addParam('useHexBin', BooleanParam, default=False,
-                           label="Use hexagonal bins for the plots?")
-            group.addParam('doShowPCA', LabelParam,
-                           label='Show PCA projection of latent space encodings')
-            group.addParam('doShowUMAP', LabelParam,
-                           label="Show UMAP visualization of latent space encodings")
+            form.addParam('useHexBin', BooleanParam, default=False,
+                          label="Use hexagonal bins for the plots?")
+            form.addParam('doShowPCA', LabelParam,
+                          label='Show PCA projection of latent space encodings')
+            form.addParam('doShowUMAP', LabelParam,
+                          label="Show UMAP visualization of latent space encodings")
         else:
-            group.addParam('doShowDistr', LabelParam,
-                           label='Show latent coordinates distribution')
-            group.addParam('doShowHistogram', LabelParam,
-                           label="Show latent coordinates histogram")
-        group.addParam('doShowNotebook', LabelParam,
-                       label="Show Jupyter notebook")
+            form.addParam('doShowDistr', LabelParam,
+                          label='Show latent coordinates distribution')
+            form.addParam('doShowHistogram', LabelParam,
+                          label="Show latent coordinates histogram")
+        form.addParam('doShowNotebook', LabelParam,
+                      label="Show Jupyter notebook")
 
     def _getVisualizeDict(self):
-        self.protocol._initialize()  # Load filename templates
-        self._loadEpochs()
+        self._createFilenameTemplates()
 
-        visDict = {'runAnalyze': self._runAnalysis,
-                   'displayVol': self._showVolumes,
-                   'doShowNotebook': self._showNotebook
-                   }
+        visDict = {
+            'displayVol': self._showVolumes,
+            'doShowNotebook': self._showNotebook
+        }
 
         if self.hasMultLatentVars():
             visDict.update({
@@ -113,54 +121,47 @@ class CryoDrgnViewer(EmProtocolViewer):
 
         return visDict
 
-    def _runAnalysis(self, paramName=None):
-        program = Plugin.getProgram('analyze')
-        args = ' %s %d --Apix %0.3f' % (
-            self.protocol._getFileName("output_dir"),
-            self._epoch,
-            self.protocol._getSampling())
-
-        hostConfig = self.protocol.getHostConfig()
-        # Create the steps executor
-        executor = StepExecutor(hostConfig)
-        self.protocol.setStepsExecutor(executor)
-        # Finally run the protocol
-        self.protocol.runJob(program, args, env=Plugin.getEnviron(),
-                             cwd=None)
-
     def _showVolumes(self, paramName=None):
-        if self.displayVol == VOLUME_CHIMERA:
-            return self._showVolumesChimera()
-        elif self.displayVol == VOLUME_SLICES:
-            return self._createVolumesSqlite()
+        try:
+            if self.displayVol == VOLUME_CHIMERA:
+                return self._showVolumesChimera()
+            elif self.displayVol == VOLUME_SLICES:
+                return self._createVolumesSqlite()
+        except Exception as e:
+            self.showError(str(e))
 
     def _showVolumesChimera(self):
         """ Create a chimera script to visualize selected volumes. """
+        prot = self.protocol
         volumes = self._getVolumeNames()
-        cmdFile = self.protocol._getExtraPath('chimera_volumes.cxc')
+        extra = prot._getExtraPath()
+        cmdFile = prot._getExtraPath('chimera_volumes.cxc')
+
         with open(cmdFile, 'w+') as f:
             for vol in volumes:
-                localVol = os.path.relpath(vol,
-                                           self.protocol._getExtraPath())
+                localVol = os.path.relpath(vol, extra)
                 if os.path.exists(vol):
                     f.write("open %s\n" % localVol)
             f.write('tile\n')
+
         view = ChimeraView(cmdFile)
+
         return [view]
 
     def _createVolumesSqlite(self):
         """ Write an sqlite with all volumes selected for visualization. """
-        path = self.protocol._getExtraPath('viewer_volumes.sqlite')
-        samplingRate = self.protocol._getSampling()
+        prot = self.protocol  # shortcut
+        path = prot._getExtraPath('viewer_volumes.sqlite')
+        samplingRate = prot.inputParticles.get().getSamplingRate()
         files = self._getVolumeNames()
-
         self.createVolumesSqlite(files, path, samplingRate)
+
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
     def _showPlot(self, fn, epoch):
         import matplotlib.image as mpimg
         import matplotlib.pyplot as plt
-        fn = self.protocol._getFileName(fn, epoch=epoch)
+        fn = self._getFileName(fn, epoch=epoch)
         if os.path.exists(fn):
             img = mpimg.imread(fn)
             imgplot = plt.imshow(img)
@@ -186,10 +187,10 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
+
         def _extraWork():
             program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
-            fn = self.protocol._getFileName('output_notebook',
-                                            epoch=self._epoch)
+            fn = self._getFileName('output_notebook', epoch=self._epoch)
             program.append('jupyter notebook %s' % os.path.basename(fn))
 
             if os.path.exists(fn):
@@ -217,21 +218,21 @@ class CryoDrgnViewer(EmProtocolViewer):
             num = 10
 
         for volId in range(num):
-            volFn = self.protocol._getFileName(fn, epoch=self._epoch, id=volId)
+            volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
             if os.path.exists(volFn):
                 vols.append(volFn)
             else:
                 raise FileNotFoundError("Volume %s does not exists. \n"
                                         "Please select a valid epoch "
-                                        "number OR *Run analysis!* first." % volFn)
+                                        "number." % volFn)
         return vols
 
-    def _loadEpochs(self):
+    def getEpoch(self):
         """ Get the epoch number for visualisation. """
-        if self.viewEpoch.get() == EPOCH_LAST:
-            self._epoch = self.protocol._lastIter()
+        if self.viewEpoch == EPOCH_LAST:
+            return self.protocol.getLastEpoch()
         else:
-            self._epoch = self.epochNum.get()
+            return self.epochNum.get()
 
     def hasMultLatentVars(self):
-        return self.protocol.zDim.get() > 1
+        return self.protocol.zDim > 1

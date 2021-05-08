@@ -107,19 +107,25 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
+        tarPrefix = VERSION_PREFIX.get(version, '')
         env.addPackage('cryodrgn', version=version,
-                       url='https://github.com/zhonge/cryodrgn/archive/%s.tar.gz' % version,
+                       url='https://github.com/zhonge/cryodrgn/archive/%s%s.tar.gz' % (tarPrefix, version),
                        commands=cryodrgn_commands,
                        neededProgs=cls.getDependencies(),
                        default=default,
                        vars=installEnvVars)
 
     @classmethod
+    def getActivationCmd(cls):
+        """ Return the activation command. """
+        return '%s %s' % (cls.getCondaActivationCmd(),
+                          cls.getCryoDrgnEnvActivation())
+
+    @classmethod
     def getProgram(cls, program, gpus='0'):
         """ Create cryoDRGN command line. """
-        fullProgram = '%s %s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
-            cls.getCondaActivationCmd(), cls.getCryoDrgnEnvActivation(),
-            gpus, program)
+        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
+            cls.getActivationCmd(), gpus, program)
 
         return fullProgram
 
@@ -128,7 +134,3 @@ class Plugin(pwem.Plugin):
         """ Return the env name that is currently active. """
         envVar = cls.getVar(CRYODRGN_ENV_ACTIVATION)
         return envVar.split()[-1]
-
-    @classmethod
-    def IS_V03(cls):
-        return cls.getActiveVersion().startswith(getCryoDrgnEnvName('0.3'))
