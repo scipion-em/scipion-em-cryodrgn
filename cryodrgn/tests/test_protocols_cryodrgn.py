@@ -61,7 +61,7 @@ class TestCryoDrgn(BaseTest):
     def runPreprocess(self, particles, **kwargs):
         print(magentaStr("\n==> Testing cryoDRGN - preprocess:"))
         protPreprocess = self.newProtocol(CryoDrgnProtPreprocess, **kwargs)
-        #protPreprocess._createFilenameTemplates()
+        # protPreprocess._createFilenameTemplates()
         protPreprocess.inputParticles.set(particles)
         return self.launchProtocol(protPreprocess)
 

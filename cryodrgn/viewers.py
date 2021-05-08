@@ -39,7 +39,7 @@ from .constants import *
 
 class CryoDrgnViewer(EmProtocolViewer):
     """ Visualization of cryoDRGN results. """
-           
+
     _environments = [DESKTOP_TKINTER]
     _targets = [CryoDrgnProtTrain]
     _label = 'analyze results'
@@ -79,33 +79,33 @@ class CryoDrgnViewer(EmProtocolViewer):
                       label="Epoch number")
 
         form.addParam('displayVol', EnumParam,
-                       choices=['slices', 'chimera'],
-                       default=VOLUME_SLICES,
-                       display=EnumParam.DISPLAY_HLIST,
-                       label='Display volume with',
-                       help='*slices*: display volumes as 2D slices along z axis.\n'
-                            '*chimera*: display volumes as surface with Chimera.')
+                      choices=['slices', 'chimera'],
+                      default=VOLUME_SLICES,
+                      display=EnumParam.DISPLAY_HLIST,
+                      label='Display volume with',
+                      help='*slices*: display volumes as 2D slices along z axis.\n'
+                           '*chimera*: display volumes as surface with Chimera.')
         if self.hasMultLatentVars():
             form.addParam('useHexBin', BooleanParam, default=False,
-                           label="Use hexagonal bins for the plots?")
+                          label="Use hexagonal bins for the plots?")
             form.addParam('doShowPCA', LabelParam,
-                           label='Show PCA projection of latent space encodings')
+                          label='Show PCA projection of latent space encodings')
             form.addParam('doShowUMAP', LabelParam,
-                           label="Show UMAP visualization of latent space encodings")
+                          label="Show UMAP visualization of latent space encodings")
         else:
             form.addParam('doShowDistr', LabelParam,
-                           label='Show latent coordinates distribution')
+                          label='Show latent coordinates distribution')
             form.addParam('doShowHistogram', LabelParam,
-                           label="Show latent coordinates histogram")
+                          label="Show latent coordinates histogram")
         form.addParam('doShowNotebook', LabelParam,
-                       label="Show Jupyter notebook")
+                      label="Show Jupyter notebook")
 
     def _getVisualizeDict(self):
         self._createFilenameTemplates()
 
         visDict = {
-           'displayVol': self._showVolumes,
-           'doShowNotebook': self._showNotebook
+            'displayVol': self._showVolumes,
+            'doShowNotebook': self._showNotebook
         }
 
         if self.hasMultLatentVars():
@@ -187,6 +187,7 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
+
         def _extraWork():
             program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
             fn = self._getFileName('output_notebook', epoch=self._epoch)
@@ -235,5 +236,3 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def hasMultLatentVars(self):
         return self.protocol.zDim > 1
-
-
