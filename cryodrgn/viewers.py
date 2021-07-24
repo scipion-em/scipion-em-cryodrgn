@@ -97,8 +97,18 @@ class CryoDrgnViewer(EmProtocolViewer):
                           label='Show latent coordinates distribution')
             form.addParam('doShowHistogram', LabelParam,
                           label="Show latent coordinates histogram")
+
         form.addParam('doShowNotebook', LabelParam,
                       label="Show Jupyter notebook")
+        form.addParam('serverMode', BooleanParam, default=False,
+                      label='Launch Jupyter in server mode?',
+                      help="If yes, the Jupyter notebook will be initialized "
+                           "with option *--no-browser*.\n"
+                           "Then you might be able to connect to the local server. "
+                           "One can also access the server remotely by setting "
+                           "a SSH tunnel:\n"
+                           "$ ssh -N -f -L localhost:8888:localhost:8888 remote_username@remote_host_name "
+                           "# replace remote_username and remote_host_name with your login information")
 
     def _getVisualizeDict(self):
         self._createFilenameTemplates()
@@ -191,7 +201,13 @@ class CryoDrgnViewer(EmProtocolViewer):
         def _extraWork():
             program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
             fn = self._getFileName('output_notebook', epoch=self._epoch)
-            program.append('jupyter notebook %s' % os.path.basename(fn))
+
+            if self.serverMode:
+                args = '--no-browser --port 8888 '
+            else:
+                args = '%s ' % os.path.basename(fn)
+
+            program.append('jupyter notebook %s' % args)
 
             if os.path.exists(fn):
                 fnDir = os.path.dirname(fn)
