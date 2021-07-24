@@ -84,7 +84,7 @@ class TestCryoDrgn(BaseTest):
         else:
             self.assertTrue(filename.endswith('.mrcs'))
 
-    def testProprocess(self):
+    def testPreprocess(self):
         parts = self.protImport.outputParticles
 
         preprocess1 = self.runPreprocess(parts, scaleSize=64)

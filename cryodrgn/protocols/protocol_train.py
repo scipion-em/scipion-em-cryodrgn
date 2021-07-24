@@ -104,9 +104,19 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                       choices=['last', 'selection'], default=EPOCH_LAST,
                       display=params.EnumParam.DISPLAY_LIST,
                       label="Epoch to analyze")
+
         form.addParam('epochNum', params.IntParam,
                       condition='viewEpoch==%d' % EPOCH_SELECTION,
                       label="Epoch number")
+
+        form.addParam('ksamples', params.IntParam, default=20,
+                      label='Number of K-means partitions',
+                      help="*cryodrgn analyze* uses the k-means clustering "
+                           "algorithm to partition the latent space into "
+                           "regions (by default k=20 regions), and generate a "
+                           "density map from the center of each of these "
+                           "regions. The goal is to provide a tractable number "
+                           "of representative density maps to visually inspect. ")
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
@@ -116,7 +126,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             epoch = self.numEpochs.get() - 1
         else:
             epoch = self.epochNum.get()
-        self._insertFunctionStep('runAnalysisStep', epoch)
+        self._insertFunctionStep('runAnalysisStep', epoch, self.ksamples.get())
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
@@ -127,7 +137,13 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         # Call cryoDRGN with the appropriate parameters.
         self._runProgram('train_vae', self._getTrainingArgs())
 
-    def runAnalysisStep(self, epoch):
+    def runAnalysisStep(self, epoch, ksamples):
+        """ Run analysis step.
+        Args:
+            epoch: epoch number to be analyzed.
+            ksamples: the number of kmeans cluster (default=20)
+        """
+
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
 
     # --------------------------- INFO functions ------------------------------
@@ -168,13 +184,17 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--dec-dim %d' % self.pDim
         ])
 
+        if self.extraParams.hasValue():
+            args.append(self.extraParams.get())
+
         return args
 
     def _getAnalyzeArgs(self, epoch):
         return [
             self.getOutputDir(),
             str(epoch),
-            '--Apix %0.3f' % self.inputParticles.get().getSamplingRate()
+            '--Apix %0.3f' % self.inputParticles.get().getSamplingRate(),
+            '--ksample %d' % self.ksamples,
         ]
 
     def _runProgram(self, program, args, useGpu=True):

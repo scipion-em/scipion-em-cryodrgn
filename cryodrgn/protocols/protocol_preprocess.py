@@ -82,7 +82,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         form.addParam('chunk', params.IntParam, default=0,
                       label='Split in chunks',
-                      help='If this value is greater than 0, the output stack'
+                      help='If this value is greater than 0, the output stack '
                            'will be saved into parts of this size. This will '
                            'avoid out-of-memory errors when saving out a large '
                            'particle stack. (param **--chunk**)\n'
@@ -94,7 +94,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         self._createFilenameTemplates()
         self._insertFunctionStep('convertInputStep')
 
-        if self.doScale:
+        if self.doScale or self.chunk > 0:
             self._insertFunctionStep('runDownSampleStep')
 
         self._insertFunctionStep('runParsePosesStep')
@@ -131,6 +131,9 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         if self.chunk > 0:
             outputParts = outputParts.replace('.mrcs', '.txt')
 
+        if not os.path.exists(outputParts):
+            outputParts = self._getFileName('input_parts')
+
         output = CryoDrgnParticles(filename=outputParts,
                                    poses=self._getFileName('output_poses'),
                                    ctfs=self._getFileName('output_ctfs'),
@@ -157,7 +160,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         if not particles.hasCTF():
             errors.append("The input has no CTF values!")
 
-        if self.doScale and self.scaleSize.get() >= particles.getDim()[0]:
+        if self.doScale and self.scaleSize > particles.getXDim():
             errors.append("You cannot upscale particles!")
 
         return errors
@@ -167,10 +170,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_parts'),
                 '--datadir %s' % self._getDataDir(),
-                '--relion31']
-
-        if self.doScale:
-            args.append('-D %d ' % self.scaleSize)
+                '--relion31',
+                '-D %d' % self._getBoxSize()]
 
         if self.chunk > 0:
             args.append('--chunk %d ' % self.chunk)
@@ -221,11 +222,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         return newSampling
 
     def _getScaleFactor(self, inputSet):
-        xdim = inputSet.getDim()[0]
-        scaleFactor = xdim / float(
-            self.scaleSize.get() if self.doScale else xdim)
-
-        return scaleFactor
+        return inputSet.getXDim() / float(self._getBoxSize())
 
     def _getDataDir(self):
         """ We assume all mrcs stacks are in the same folder. """

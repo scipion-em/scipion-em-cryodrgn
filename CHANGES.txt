@@ -1,3 +1,9 @@
+3.2:
+    - 0.3.2b added
+    - Use preprocess when chunks despite scaling, also use input star when no preprocess
+    - Added missing parameters and use extraParams if set
+    - Added server mode to use the Jupyter nb remotely
+    - Improved the help of the nb in server mode
 3.1:
     - Update to use version 0.3.2, deprecated versions < 0.3.0
     - protocol preprocess
