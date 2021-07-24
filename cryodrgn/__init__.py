@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.1'
+__version__ = '3.2'
 _references = ['Zhong2020a', 'Zhong2020b']
 _logo = "cryodrgn_logo.png"
 
@@ -95,8 +95,11 @@ class Plugin(pwem.Plugin):
         # Install downloaded code
         installCmd.extend(['conda install -y pytorch cudatoolkit=10.1 -c pytorch &&',
                            'conda install -y pandas seaborn scikit-learn &&',
-                           'conda install -y -c conda-forge umap-learn jupyterlab &&',
-                           'pip install ipywidgets cufflinks &&',
+                           'conda install -y umap-learn jupyterlab ipywidgets cufflinks-py "nodejs>=15.12.0" -c conda-forge &&',
+                           'jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build &&',
+                           'jupyter labextension install jupyterlab-plotly --no-build &&',
+                           'jupyter labextension install plotlywidget --no-build &&',
+                           'jupyter lab build &&',
                            'pip install -e . &&'])
 
         # Flag installation finished
@@ -109,7 +112,7 @@ class Plugin(pwem.Plugin):
         installEnvVars = {'PATH': envPath} if envPath else None
         tarPrefix = VERSION_PREFIX.get(version, '')
         env.addPackage('cryodrgn', version=version,
-                       url='https://github.com/zhonge/cryodrgn/archive/%s%s.tar.gz' % (tarPrefix, version),
+                       url='https://github.com/zhonge/cryodrgn/archive/refs/tags/%s%s.tar.gz' % (tarPrefix, version),
                        commands=cryodrgn_commands,
                        neededProgs=cls.getDependencies(),
                        default=default,

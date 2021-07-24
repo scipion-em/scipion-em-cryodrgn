@@ -82,7 +82,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         form.addParam('chunk', params.IntParam, default=0,
                       label='Split in chunks',
-                      help='If this value is greater than 0, the output stack'
+                      help='If this value is greater than 0, the output stack '
                            'will be saved into parts of this size. This will '
                            'avoid out-of-memory errors when saving out a large '
                            'particle stack. (param **--chunk**)\n'

@@ -118,8 +118,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect. ")
 
-
-
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
         # self._initialize()
@@ -144,7 +142,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         Args:
             epoch: epoch number to be analyzed.
             ksamples: the number of kmeans cluster (default=20)
-            pcs: pc trajectories
         """
 
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
