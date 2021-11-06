@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.2'
+__version__ = '3.3'
 _references = ['Zhong2020a', 'Zhong2020b']
 _logo = "cryodrgn_logo.png"
 
@@ -93,7 +93,7 @@ class Plugin(pwem.Plugin):
         installCmd.append('conda activate %s;' % ENV_NAME)
 
         # Install downloaded code
-        installCmd.extend(['conda install -y pytorch cudatoolkit=10.1 -c pytorch &&',
+        installCmd.extend(['conda install -y "pytorch<1.9.0" cudatoolkit=10.1 -c pytorch &&',
                            'conda install -y pandas seaborn scikit-learn &&',
                            'conda install -y umap-learn jupyterlab ipywidgets cufflinks-py "nodejs>=15.12.0" -c conda-forge &&',
                            'jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build &&',
