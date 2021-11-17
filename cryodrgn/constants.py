@@ -46,6 +46,7 @@ V0_3_2 = "0.3.2"
 V0_3_3b = "0.3.3b"
 
 VERSIONS = [V0_3_1, V0_3_2, V0_3_3b]
+
 # They set release tag to 'v0.3.2' instead of '0.3.2' since that version
 VERSION_PREFIX = {
     V0_3_2: 'v'
