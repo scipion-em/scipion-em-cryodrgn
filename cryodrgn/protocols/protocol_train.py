@@ -187,6 +187,9 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--dec-dim %d' % self.pDim
         ])
 
+        if isCryoDrgnGT033():
+            args.append('--max-threads %d ' % self.numberOfThreads)
+
         if self.extraParams.hasValue():
             args.append(self.extraParams.get())
 
