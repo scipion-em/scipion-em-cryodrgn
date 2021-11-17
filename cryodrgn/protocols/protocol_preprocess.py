@@ -205,7 +205,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         # It seems that 'cryodrgn preprocess' make chunks by default
         # I think it might be good to keep same behavior as 'downsample'
         # So, if not chunks provided, we will create a single stack
-        inputSize = self.inputParticles.getSize()
+        inputSize = self.inputParticles.get().getSize()
         chunkSize = self.chunk.get() if self.chunk > 0 else inputSize
         args.append('--chunk %d ' % chunkSize)
 
