@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.2'
+__version__ = '3.3b'
 _references = ['Zhong2020a', 'Zhong2020b']
 _logo = "cryodrgn_logo.png"
 
@@ -84,28 +84,22 @@ class Plugin(pwem.Plugin):
         CRYODRGN_INSTALLED = 'cryodrgn_%s_installed' % version
         ENV_NAME = getCryoDrgnEnvName(version)
         # try to get CONDA activation command
-        installCmd = [cls.getCondaActivationCmd()]
+        installCmds = [
+            cls.getCondaActivationCmd(),
+            'conda create -y -n %s python=3.7;' % ENV_NAME,  # Create the environment
+            'conda activate %s;' % ENV_NAME,  # Activate the new environment and install downloaded code
+            'conda install -y "pytorch<1.9.0" cudatoolkit=10.1 -c pytorch &&',  # PyTorch 1.9+ is not working for now
+            'conda install -y pandas seaborn scikit-learn &&',
+            'conda install -y umap-learn jupyterlab ipywidgets cufflinks-py "nodejs>=15.12.0" -c conda-forge &&',
+            'jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build &&',
+            'jupyter labextension install jupyterlab-plotly --no-build &&',
+            'jupyter labextension install plotlywidget --no-build &&',
+            'jupyter lab build &&',
+            'pip install -e . &&',
+            'touch %s' % CRYODRGN_INSTALLED  # Flag installation finished
+        ]
 
-        # Create the environment
-        installCmd.append('conda create -y -n %s python=3.7;' % ENV_NAME)
-
-        # Activate the new environment
-        installCmd.append('conda activate %s;' % ENV_NAME)
-
-        # Install downloaded code
-        installCmd.extend(['conda install -y pytorch cudatoolkit=10.1 -c pytorch &&',
-                           'conda install -y pandas seaborn scikit-learn &&',
-                           'conda install -y umap-learn jupyterlab ipywidgets cufflinks-py "nodejs>=15.12.0" -c conda-forge &&',
-                           'jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build &&',
-                           'jupyter labextension install jupyterlab-plotly --no-build &&',
-                           'jupyter labextension install plotlywidget --no-build &&',
-                           'jupyter lab build &&',
-                           'pip install -e . &&'])
-
-        # Flag installation finished
-        installCmd.append('touch %s' % CRYODRGN_INSTALLED)
-
-        cryodrgn_commands = [(" ".join(installCmd), CRYODRGN_INSTALLED)]
+        cryodrgnCmds = [(" ".join(installCmds), CRYODRGN_INSTALLED)]
 
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
@@ -113,7 +107,7 @@ class Plugin(pwem.Plugin):
         tarPrefix = VERSION_PREFIX.get(version, '')
         env.addPackage('cryodrgn', version=version,
                        url='https://github.com/zhonge/cryodrgn/archive/refs/tags/%s%s.tar.gz' % (tarPrefix, version),
-                       commands=cryodrgn_commands,
+                       commands=cryodrgnCmds,
                        neededProgs=cls.getDependencies(),
                        default=default,
                        vars=installEnvVars)
