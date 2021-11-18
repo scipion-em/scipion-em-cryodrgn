@@ -39,9 +39,7 @@ def isCryoDrgnGT033():
     return getCryoDrgnVersion() == V0_3_3b
 
 
-V0_3_0b = "0.3.0b"
 V0_3_1 = "0.3.1"
-V0_3_2b = "0.3.2b"
 V0_3_2 = "0.3.2"
 V0_3_3b = "0.3.3b"
 
