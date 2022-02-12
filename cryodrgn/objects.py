@@ -43,9 +43,9 @@ class CryoDrgnParticles(EMObject):
         self.dim = pwobj.Integer(dim)
 
     def __str__(self):
-        preprocessedStr = '(preprocessed)' if self.isPreprocessed() else ''
-        return ('CryoDrgnParticles: dim=%dpx %0.3f %s'
-                % (self.dim, self.samplingRate, preprocessedStr))
+        preprocessedStr = ', preprocessed' if self.isPreprocessed() else ''
+        return ('CryoDrgnParticles (%d x %d, %0.2f Å/px%s)'
+                % (self.dim, self.dim, self.samplingRate, preprocessedStr))
 
     def getSamplingRate(self):
         return self.samplingRate.get()

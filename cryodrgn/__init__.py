@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.3b'
+__version__ = '3.4'
 _references = ['Zhong2020a', 'Zhong2020b']
 _logo = "cryodrgn_logo.png"
 
@@ -88,7 +88,7 @@ class Plugin(pwem.Plugin):
             cls.getCondaActivationCmd(),
             'conda create -y -n %s python=3.7;' % ENV_NAME,  # Create the environment
             'conda activate %s;' % ENV_NAME,  # Activate the new environment and install downloaded code
-            'conda install -y "pytorch<1.9.0" cudatoolkit=10.1 -c pytorch &&',  # PyTorch 1.9+ is not working for now
+            'conda install -y "pytorch<1.9.0" cudatoolkit -c pytorch &&',  # PyTorch 1.9+ is not working for now
             'conda install -y pandas seaborn scikit-learn &&',
             'conda install -y umap-learn jupyterlab ipywidgets cufflinks-py "nodejs>=15.12.0" -c conda-forge &&',
             'jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build &&',
@@ -130,4 +130,19 @@ class Plugin(pwem.Plugin):
     def getActiveVersion(cls, *args):
         """ Return the env name that is currently active. """
         envVar = cls.getVar(CRYODRGN_ENV_ACTIVATION)
-        return envVar.split()[-1]
+        return envVar.split()[-1].split("-")[-1]
+
+    @classmethod
+    def versionGE(cls, version):
+        """ Return True if current version of cryodrgn is newer
+         or equal than the input argument.
+         Params:
+            version: string version (semantic version, e.g 0.3.3b)
+        """
+        v1 = cls.getActiveVersion()
+        if v1 not in VERSIONS:
+            raise Exception("This version of cryoDRGN is not supported: ", v1)
+
+        if VERSIONS.index(v1) < VERSIONS.index(version):
+            return False
+        return True

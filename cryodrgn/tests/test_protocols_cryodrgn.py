@@ -78,11 +78,7 @@ class TestCryoDrgn(BaseTest):
             fn = os.path.join(self.proj.path, f)
             self.assertTrue(os.path.exists(fn))
 
-        if preprocessProt.chunk > 0:
-            self.assertTrue(filename.endswith('.txt'))
-
-        else:
-            self.assertTrue(filename.endswith('.mrcs'))
+        self.assertTrue(filename.endswith('.txt'))
 
     def testPreprocess(self):
         parts = self.protImport.outputParticles
@@ -103,4 +99,3 @@ class TestCryoDrgn(BaseTest):
         protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3)
         protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
         self.launchProtocol(protTrain)
-

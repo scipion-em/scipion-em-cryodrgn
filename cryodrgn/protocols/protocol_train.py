@@ -31,7 +31,7 @@ from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
-from cryodrgn import Plugin, isCryoDrgnGT033
+from cryodrgn import Plugin
 from cryodrgn.constants import *
 
 
@@ -118,7 +118,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect. ")
 
-        if isCryoDrgnGT033():
+        if Plugin.versionGE(V0_3_3b):
             form.addParallelSection(threads=16, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
@@ -187,7 +187,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--dec-dim %d' % self.pDim
         ])
 
-        if isCryoDrgnGT033():
+        if Plugin.versionGE(V0_3_3b):
             args.append('--max-threads %d ' % self.numberOfThreads)
 
         if self.extraParams.hasValue():

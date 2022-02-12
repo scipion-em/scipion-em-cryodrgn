@@ -34,7 +34,7 @@ import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ
 from pwem.protocols import ProtProcessParticles
 
-from cryodrgn import Plugin, isCryoDrgnGT033
+from cryodrgn import Plugin, V0_3_3b
 from cryodrgn.objects import CryoDrgnParticles
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
@@ -50,6 +50,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
+
         def out(*p):
             return os.path.join(self._getPath('output_particles'), *p)
 
@@ -78,7 +79,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         group = form.addGroup("Preprocess particles")
 
         group.addParam('usePreprocess', params.BooleanParam, default=False,
-                       condition="%s" % isCryoDrgnGT033(),
+                       condition="%s" % Plugin.versionGE(V0_3_3b),
                        label="Use cryodrgn preprocess?",
                        help="Use new utility *cryodrgn preprocess* "
                             "(beta as 2021/11/17) instead of *cryodrgn downsample*. "
@@ -91,24 +92,24 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                             "https://www.notion.so/cryodrgn-preprocess-d84a9d9df8634a6a8bfd32d6b5e737ef")
 
         group.addParam('doScale', params.BooleanParam, default=True,
-                      label='Downsample particles?')
+                       label='Downsample particles?')
 
         group.addParam('scaleSize', params.IntParam, default=128,
-                      condition='doScale',
-                      validators=[params.Positive],
-                      label='New box size (px)',
-                      help='New box size in pixels, must be even.')
+                       condition='doScale',
+                       validators=[params.Positive],
+                       label='New box size (px)',
+                       help='New box size in pixels, must be even.')
 
         group.addParam('chunk', params.IntParam, default=0,
-                      label='Split in chunks',
-                      help='If this value is greater than 0, the output stack '
-                           'will be saved into parts of this size. This will '
-                           'avoid out-of-memory errors when saving out a large '
-                           'particle stack. (param **--chunk**)\n'
-                           'For example, use --chunk 50000 to chunk the output '
-                           'into separate .mrcs with 50k images each. ')
+                       label='Split in chunks',
+                       help='If this value is greater than 0, the output stack '
+                            'will be saved into parts of this size. This will '
+                            'avoid out-of-memory errors when saving out a large '
+                            'particle stack. (param **--chunk**)\n'
+                            'For example, use --chunk 50000 to chunk the output '
+                            'into separate .mrcs with 50k images each. ')
 
-        if isCryoDrgnGT033():
+        if Plugin.versionGE(V0_3_3b):
             form.addParallelSection(threads=16, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
@@ -209,7 +210,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         chunkSize = self.chunk.get() if self.chunk > 0 else inputSize
         args.append('--chunk %d ' % chunkSize)
 
-        if isCryoDrgnGT033():
+        if Plugin.versionGE(V0_3_3b):
             args.append('--max-threads %d ' % self.numberOfThreads)
 
         return args
