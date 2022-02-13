@@ -118,6 +118,9 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect. ")
 
+        if Plugin.versionGE(V0_3_3b):
+            form.addParallelSection(threads=16, mpi=0)
+
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
         # self._initialize()
@@ -183,6 +186,9 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--dec-layers %d' % self.pLayers,
             '--dec-dim %d' % self.pDim
         ])
+
+        if Plugin.versionGE(V0_3_3b):
+            args.append('--max-threads %d ' % self.numberOfThreads)
 
         if self.extraParams.hasValue():
             args.append(self.extraParams.get())

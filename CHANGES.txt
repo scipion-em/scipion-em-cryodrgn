@@ -1,3 +1,5 @@
+3.4: 0.3.4 added
+3.3: 0.3.3b added
 3.2:
     - 0.3.2b added
     - Use preprocess when chunks despite scaling, also use input star when no preprocess

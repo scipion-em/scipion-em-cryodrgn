@@ -29,13 +29,14 @@ def getCryoDrgnEnvName(version):
     return "cryodrgn-%s" % version
 
 
-V0_3_0b = "0.3.0b"
 V0_3_1 = "0.3.1"
 V0_3_2 = "0.3.2"
-V0_3_2b = "0.3.2b"
+V0_3_3b = "0.3.3b"
+V0_3_4 = "0.3.4"
 
-VERSIONS = [V0_3_0b, V0_3_1, V0_3_2, V0_3_2b]
-# They set release tag to 'v0.3.2' instead of '0.3.2' since that version
+VERSIONS = [V0_3_1, V0_3_2, V0_3_3b, V0_3_4]
+
+# They set release tag to 'v0.3.2' instead of '0.3.2' for that version
 VERSION_PREFIX = {
     V0_3_2: 'v'
 }
