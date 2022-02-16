@@ -2,7 +2,7 @@
 cryoDRGN plugin
 ===============
 
-This plugin provide a wrapper around `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
+This plugin provides a wrapper for `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
 
 .. image:: https://img.shields.io/pypi/v/scipion-em-cryodrgn.svg
         :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
@@ -47,7 +47,7 @@ b) Developer's version
 
     .. code-block::
 
-       scipion installp -p path_to_scipion-em-cryodrgn --devel
+       scipion installp -p /path/to/scipion-em-cryodrgn --devel
 
 cryoDRGN software will be installed automatically with the plugin but you can also use an existing installation by providing *CRYODRGN_ENV_ACTIVATION* (see below).
 
