@@ -78,7 +78,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         group = form.addGroup("Preprocess particles")
 
-        group.addParam('usePreprocess', params.BooleanParam, default=False,
+        group.addParam('usePreprocess', params.BooleanParam, default=True,
                        condition="%s" % Plugin.versionGE(V0_3_3b),
                        label="Use cryodrgn preprocess?",
                        help="Use new utility *cryodrgn preprocess* "

@@ -174,6 +174,9 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--relion31 '
         ]
 
+        if parts.isPreprocessed():
+            args.append('--preprocessed')
+
         if len(self.getGpuList()) > 1:
             args.append('--multigpu')
 

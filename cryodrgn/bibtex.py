@@ -25,18 +25,19 @@
 # *
 # **************************************************************************
 """
-@article{Zhong2020a,
-  title={CryoDRGN: Reconstruction of heterogeneous structures from cryo-electron micrographs using neural networks.},
-  author={Zhong, Ellen D. and Bepler, Tristan and Berger, Bonnie and Davis, Joseph H.},
-  journal={biorxiv},
-  volume={0},
-  number={0},
-  pages={0},
-  year={2020},
-  doi = {https://www.biorxiv.org/content/10.1101/2020.03.27.003871v1}
+@article{Zhong2021,
+	doi = {10.1038/s41592-020-01049-4},
+	year = 2021,
+	month = {feb},
+	volume = {18},
+	number = {2},
+	pages = {176--185},
+	author = {Ellen D. Zhong and Tristan Bepler and Bonnie Berger and Joseph H. Davis},
+	title = {{CryoDRGN}: reconstruction of heterogeneous cryo-{EM} structures using neural networks},
+	journal = {Nature Methods}
 }
 
-@article{Zhong2020b,
+@article{Zhong2020,
   title={Reconstructing continuous distributions of 3D protein structure from cryo-EM images.},
   author={Zhong, Ellen D. and Bepler, Tristan and Davis, Joseph H. and Berger, Bonnie},
   journal={ICLR},
