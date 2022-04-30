@@ -32,8 +32,8 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.5'
-_references = ['Zhong2020a', 'Zhong2020b']
+__version__ = '3.5.1'
+_references = ['Zhong2020', 'Zhong2021']
 _logo = "cryodrgn_logo.png"
 
 
