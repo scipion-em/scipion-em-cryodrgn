@@ -2,7 +2,7 @@
 cryoDRGN plugin
 ===============
 
-This plugin provide a wrapper around `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
+This plugin provides a wrapper for `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
 
 .. image:: https://img.shields.io/pypi/v/scipion-em-cryodrgn.svg
         :target: https://pypi.python.org/pypi/scipion-em-cryodrgn
@@ -47,7 +47,7 @@ b) Developer's version
 
     .. code-block::
 
-       scipion installp -p path_to_scipion-em-cryodrgn --devel
+       scipion installp -p /path/to/scipion-em-cryodrgn --devel
 
 cryoDRGN software will be installed automatically with the plugin but you can also use an existing installation by providing *CRYODRGN_ENV_ACTIVATION* (see below).
 
@@ -61,7 +61,7 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-0.3.4):
+*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-0.3.5):
 Command to activate the cryoDRGN environment.
 
 
@@ -74,7 +74,7 @@ To check the installation, simply run the following Scipion test:
 Supported versions
 ------------------
 
-0.3.1, 0.3.2, 0.3.3b, 0.3.4
+0.3.1, 0.3.2, 0.3.3b, 0.3.4, 0.3.5
 
 Protocols
 ----------
