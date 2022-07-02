@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+from enum import Enum
 from emtable import Table
 
 import pyworkflow.utils as pwutils
@@ -40,6 +41,10 @@ from cryodrgn.objects import CryoDrgnParticles
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 
+class outputs(Enum):
+    outputCryoDrgnParticles = CryoDrgnParticles
+
+
 class CryoDrgnProtPreprocess(ProtProcessParticles):
     """ Protocol to downsample a particle stack and prepare alignment/CTF parameters.
 
@@ -47,6 +52,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     """
     _label = 'preprocess'
     _devStatus = BETA
+    _possibleOutputs = outputs
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
@@ -170,7 +176,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                                    dim=self._getBoxSize(),
                                    samplingRate=self._getSamplingRate())
 
-        self._defineOutputs(outputCryoDrgnParticles=output)
+        self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
