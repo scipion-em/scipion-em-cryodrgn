@@ -114,10 +114,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     def _insertAllSteps(self):
         self._createFilenameTemplates()
         self._insertFunctionStep('convertInputStep')
-
-        if self.doScale or self.chunk > 0:
-            self._insertFunctionStep('runDownSampleStep')
-
+        self._insertFunctionStep('runDownSampleStep')
         self._insertFunctionStep('runParsePosesStep')
         self._insertFunctionStep('runParseCtfStep')
         self._insertFunctionStep('createOutputStep')
@@ -156,12 +153,12 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         elif os.path.exists(outputParts):
             outputFn = outputParts
         else:
-            outputFn = self._getFileName('input_parts')
+            raise FileNotFoundError('Could not find any output files')
 
         output = CryoDrgnParticles(filename=outputFn,
                                    poses=self._getFileName('output_poses'),
                                    ctfs=self._getFileName('output_ctfs'),
-                                   dim=self._getBoxSize(),
+                                   dim=self._getBoxSize() + 1,
                                    samplingRate=self._getSamplingRate())
 
         self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})

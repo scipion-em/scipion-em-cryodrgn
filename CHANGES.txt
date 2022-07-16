@@ -1,3 +1,4 @@
+3.6.1: fix error when no downsampling was done, preprocess step cannot be skipped
 3.6:
     - add possible outputs class
     - update for versions 1.0.0, 1.1.0
