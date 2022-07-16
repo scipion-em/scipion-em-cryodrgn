@@ -27,7 +27,7 @@
 import os
 
 import pyworkflow.utils as pwutils
-from pyworkflow.constants import BETA
+from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 from pwem.protocols import ProtProcessParticles
 
@@ -42,10 +42,11 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     Find more information at https://github.com/zhonge/cryodrgn
     """
     _label = 'training'
-    _devStatus = BETA
+    _devStatus = PROD
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
+        form.addHidden('doInvert', params.BooleanParam, default=True)
         form.addSection(label='Input')
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
@@ -59,7 +60,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                       pointerClass="CryoDrgnParticles",
                       label='CryoDrgn particles')
 
-        form.addParam('zDim', params.IntParam, default=1,
+        form.addParam('zDim', params.IntParam, default=8,
                       validators=[params.Positive],
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
@@ -77,20 +78,18 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                            'images + default architecture, ~12 min/epoch '
                            'for D=128 images + large architecture, and ~47 '
                            'min per epoch for D=256 images + large architecture.')
-        form.addParam('doInvert', params.BooleanParam, default=True,
-                      label="Are particles white?")
 
         form.addSection(label='Advanced')
         group = form.addGroup('Encoder')
         group.addParam('qLayers', params.IntParam, default=3,
                        label='Number of hidden layers')
-        group.addParam('qDim', params.IntParam, default=256,
+        group.addParam('qDim', params.IntParam, default=1024,
                        label='Number of nodes in hidden layers')
 
         group = form.addGroup('Decoder')
         group.addParam('pLayers', params.IntParam, default=3,
                        label='Number of hidden layers')
-        group.addParam('pDim', params.IntParam, default=256,
+        group.addParam('pDim', params.IntParam, default=1024,
                        label='Number of nodes in hidden layers')
 
         form.addParam('extraParams', params.StringParam, default="",
@@ -110,7 +109,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                       label="Epoch number")
 
         form.addParam('ksamples', params.IntParam, default=20,
-                      label='Number of K-means partitions',
+                      label='Number of K-means samples to generate',
                       help="*cryodrgn analyze* uses the k-means clustering "
                            "algorithm to partition the latent space into "
                            "regions (by default k=20 regions), and generate a "
@@ -118,18 +117,16 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect. ")
 
-        if Plugin.versionGE(V0_3_3b):
-            form.addParallelSection(threads=16, mpi=0)
+        form.addParallelSection(threads=16, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        # self._initialize()
         self._insertFunctionStep('runTrainingStep')
         if self.viewEpoch == EPOCH_LAST:
             epoch = self.numEpochs.get() - 1
         else:
             epoch = self.epochNum.get()
-        self._insertFunctionStep('runAnalysisStep', epoch, self.ksamples.get())
+        self._insertFunctionStep('runAnalysisStep', epoch)
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
@@ -140,13 +137,11 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         # Call cryoDRGN with the appropriate parameters.
         self._runProgram('train_vae', self._getTrainingArgs())
 
-    def runAnalysisStep(self, epoch, ksamples):
+    def runAnalysisStep(self, epoch):
         """ Run analysis step.
         Args:
             epoch: epoch number to be analyzed.
-            ksamples: the number of kmeans cluster (default=20)
         """
-
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
 
     # --------------------------- INFO functions ------------------------------
@@ -171,27 +166,19 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--zdim %d' % self.zDim,
             '-o %s ' % self.getOutputDir(),
             '-n %d' % self.numEpochs,
-            '--relion31 '
-        ]
-
-        if parts.isPreprocessed():
-            args.append('--preprocessed')
-
-        if len(self.getGpuList()) > 1:
-            args.append('--multigpu')
-
-        if not self.doInvert:
-            args.append('--uninvert-data')
-
-        args.extend([
+            '--preprocessed',
+            '--max-threads %d ' % self.numberOfThreads,
             '--enc-layers %d' % self.qLayers,
             '--enc-dim %d' % self.qDim,
             '--dec-layers %d' % self.pLayers,
             '--dec-dim %d' % self.pDim
-        ])
+        ]
 
-        if Plugin.versionGE(V0_3_3b):
-            args.append('--max-threads %d ' % self.numberOfThreads)
+        if not Plugin.versionGE(V1_0_0):
+            args.append('--relion31')
+
+        if len(self.getGpuList()) > 1:
+            args.append('--multigpu')
 
         if self.extraParams.hasValue():
             args.append(self.extraParams.get())
@@ -206,7 +193,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--ksample %d' % self.ksamples,
         ]
 
-    def _runProgram(self, program, args, useGpu=True):
+    def _runProgram(self, program, args):
         gpus = ','.join(str(i) for i in self.getGpuList())
         self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
 
@@ -223,4 +210,3 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             epoch += 1
 
         return epoch
-
