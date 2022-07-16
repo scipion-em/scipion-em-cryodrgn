@@ -56,12 +56,11 @@ class TestCryoDrgn(BaseTest):
         cls.dataset = DataSet.getDataSet('relion_tutorial')
         cls.partFn = cls.dataset.getFile('import/refine3d_case2/relion_data.star')
         cls.protImport = cls.runImportParticlesStar(cls.partFn, 50000, 3.54)
-        # cls.protPreprocess = cls.runPreprocess(cls.protImport.outputParticles)
 
     def runPreprocess(self, protLabel, particles, **kwargs):
         print(magentaStr("\n==> Testing cryoDRGN - preprocess:"))
-        protPreprocess = self.newProtocol(CryoDrgnProtPreprocess, objLabel=protLabel, **kwargs)
-        # protPreprocess._createFilenameTemplates()
+        protPreprocess = self.newProtocol(CryoDrgnProtPreprocess,
+                                          objLabel=protLabel, **kwargs)
         protPreprocess.inputParticles.set(particles)
         return self.launchProtocol(protPreprocess)
 
@@ -86,7 +85,8 @@ class TestCryoDrgn(BaseTest):
         preprocess1 = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
         self.checkPreprocessOutput(preprocess1)
 
-        preprocess2 = self.runPreprocess("preprocess scale=50 with chunks", parts, scaleSize=50, chunk=200)
+        preprocess2 = self.runPreprocess("preprocess scale=50 with chunks", parts,
+                                         scaleSize=50, chunk=200)
         self.checkPreprocessOutput(preprocess2)
 
     def testTraining(self):
@@ -96,6 +96,6 @@ class TestCryoDrgn(BaseTest):
 
         print(magentaStr("\n==> Testing cryoDRGN - training:"))
 
-        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3)
+        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3, zDim=1)
         protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
         self.launchProtocol(protTrain)

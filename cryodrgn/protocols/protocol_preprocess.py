@@ -25,19 +25,24 @@
 # **************************************************************************
 
 import os
+from enum import Enum
 from emtable import Table
 
 import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
-from pyworkflow.constants import BETA
+from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ
 from pwem.protocols import ProtProcessParticles
 
-from cryodrgn import Plugin, V0_3_3b
+from cryodrgn import Plugin, V1_0_0
 from cryodrgn.objects import CryoDrgnParticles
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
+
+
+class outputs(Enum):
+    outputCryoDrgnParticles = CryoDrgnParticles
 
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
@@ -46,7 +51,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     Find more information at https://github.com/zhonge/cryodrgn
     """
     _label = 'preprocess'
-    _devStatus = BETA
+    _devStatus = PROD
+    _possibleOutputs = outputs
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
@@ -67,8 +73,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
+        form.addHidden('usePreprocess', params.BooleanParam, default=True)
         form.addSection(label='Input')
-
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass='SetOfParticles',
                       pointerCondition='hasAlignmentProj',
@@ -76,41 +82,33 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       help='Select a set of particles from a consensus C1 '
                            '3D refinement.')
 
-        group = form.addGroup("Preprocess particles")
+        form.addParam('doScale', params.BooleanParam, default=True,
+                      label='Downsample particles?')
 
-        group.addParam('usePreprocess', params.BooleanParam, default=True,
-                       condition="%s" % Plugin.versionGE(V0_3_3b),
-                       label="Use cryodrgn preprocess?",
-                       help="Use new utility *cryodrgn preprocess* "
-                            "(beta as 2021/11/17) instead of *cryodrgn downsample*. "
-                            "The new script performs the image preprocessing "
-                            "traditionally done at the beginning of *cryoDRGN training*. "
-                            "Separating out image preprocessing significantly "
-                            "reduces the memory requirement of *cryodrgn train_vae*, "
-                            "potentially leading to major training speedups.\n"
-                            "See more at: "
-                            "https://www.notion.so/cryodrgn-preprocess-d84a9d9df8634a6a8bfd32d6b5e737ef")
+        form.addParam('scaleSize', params.IntParam, default=128,
+                      condition='doScale',
+                      validators=[params.Positive],
+                      label='New box size (px)',
+                      help='New box size in pixels, must be even.')
 
-        group.addParam('doScale', params.BooleanParam, default=True,
-                       label='Downsample particles?')
+        form.addParam('doWindow', params.BooleanParam, default=True,
+                      label="Apply circular mask?")
 
-        group.addParam('scaleSize', params.IntParam, default=128,
-                       condition='doScale',
-                       validators=[params.Positive],
-                       label='New box size (px)',
-                       help='New box size in pixels, must be even.')
+        form.addParam('winSize', params.FloatParam, default=0.85,
+                      condition='doWindow',
+                      label="Window size",
+                      help="Circular windowing mask inner radius")
 
-        group.addParam('chunk', params.IntParam, default=0,
-                       label='Split in chunks',
-                       help='If this value is greater than 0, the output stack '
-                            'will be saved into parts of this size. This will '
-                            'avoid out-of-memory errors when saving out a large '
-                            'particle stack. (param **--chunk**)\n'
-                            'For example, use --chunk 50000 to chunk the output '
-                            'into separate .mrcs with 50k images each. ')
+        form.addParam('chunk', params.IntParam, default=0,
+                      label='Split in chunks',
+                      help='Chunksize (in # of images) to split '
+                           'particle stack when saving.')
 
-        if Plugin.versionGE(V0_3_3b):
-            form.addParallelSection(threads=16, mpi=0)
+        form.addParam('doInvert', params.BooleanParam, default=True,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Are particles white?")
+
+        form.addParallelSection(threads=16, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
@@ -138,16 +136,12 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
             outputDir=self._getExtraPath(), alignType=ALIGN_PROJ)
 
     def runDownSampleStep(self):
-        """ Call cryoDRGN with the appropriate parameters. """
-        program = "preprocess" if self.usePreprocess else "downsample"
-        self._runProgram(program, self._getDownsampleArgs())
+        self._runProgram('preprocess', self._getPreprocessArgs())
 
     def runParsePosesStep(self):
-        """ Call cryoDRGN with the appropriate parameters. """
         self._runProgram('parse_pose_star', self._getParsePosesArgs())
 
     def runParseCtfStep(self):
-        """ Call cryoDRGN with the appropriate parameters. """
         self._runProgram('parse_ctf_star', self._getParseCtfArgs())
 
     def createOutputStep(self):
@@ -170,7 +164,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                                    dim=self._getBoxSize(),
                                    samplingRate=self._getSamplingRate())
 
-        self._defineOutputs(outputCryoDrgnParticles=output)
+        self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -196,22 +190,23 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         return errors
 
     # --------------------------- UTILS functions -----------------------------
-    def _getDownsampleArgs(self):
+    def _getPreprocessArgs(self):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_parts'),
                 '--datadir %s' % self._getDataDir(),
-                '--relion31',
-                '-D %d' % self._getBoxSize()]
+                '-D %d' % self._getBoxSize(),
+                '--window-r %0.2f' % self.winSize if self.doWindow else '--no-window',
+                '--max-threads %d ' % self.numberOfThreads
+                ]
 
-        # It seems that 'cryodrgn preprocess' make chunks by default
-        # I think it might be good to keep same behavior as 'downsample'
-        # So, if not chunks provided, we will create a single stack
-        inputSize = self.inputParticles.get().getSize()
-        chunkSize = self.chunk.get() if self.chunk > 0 else inputSize
-        args.append('--chunk %d ' % chunkSize)
+        if not Plugin.versionGE(V1_0_0):
+            args.append('--relion31')
 
-        if Plugin.versionGE(V0_3_3b):
-            args.append('--max-threads %d ' % self.numberOfThreads)
+        if not self.doInvert:
+            args.append('--uninvert-data')
+
+        if self.chunk > 0:
+            args.append('--chunk %d ' % self.chunk)
 
         return args
 
@@ -219,8 +214,10 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_poses'),
                 '-D %d' % self._getBoxSize(),
-                '--Apix %0.3f' % self._getSamplingRate(),
-                '--relion31']
+                '--Apix %0.3f' % self._getSamplingRate()]
+
+        if not Plugin.versionGE(V1_0_0):
+            args.append('--relion31')
 
         return args
 
@@ -228,8 +225,10 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_ctfs'),
                 '-D %d' % self._getBoxSize(),
-                '--Apix %0.3f' % self._getSamplingRate(),
-                '--relion31']
+                '--Apix %0.3f' % self._getSamplingRate()]
+
+        if not Plugin.versionGE(V1_0_0):
+            args.append('--relion31')
 
         cs, amp, kv, ps = self._getExtraCtfParams()
         args.extend(['--kv %f ' % kv,
@@ -278,7 +277,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         mdParts = Table(fileName=self._getFileName('input_parts'),
                         tableName='particles')[0]
-        ps = getattr(mdParts, 'rlnCtfPhaseShift', 0.)
+        ps = getattr(mdParts, 'rlnCtfPhaseShift', 0)
 
         return cs, amp, kv, ps
 

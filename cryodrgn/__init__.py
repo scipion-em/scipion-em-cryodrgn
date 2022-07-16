@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.5.1'
+__version__ = '3.6'
 _references = ['Zhong2020', 'Zhong2021']
 _logo = "cryodrgn_logo.png"
 
@@ -104,9 +104,8 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
-        tarPrefix = VERSION_PREFIX.get(version, '')
         env.addPackage('cryodrgn', version=version,
-                       url='https://github.com/zhonge/cryodrgn/archive/refs/tags/%s%s.tar.gz' % (tarPrefix, version),
+                       url='https://github.com/zhonge/cryodrgn/archive/refs/tags/%s.tar.gz' % version,
                        commands=cryodrgnCmds,
                        neededProgs=cls.getDependencies(),
                        default=default,
@@ -137,7 +136,7 @@ class Plugin(pwem.Plugin):
         """ Return True if current version of cryodrgn is newer
          or equal than the input argument.
          Params:
-            version: string version (semantic version, e.g 0.3.3b)
+            version: string version (semantic version, e.g 0.3.5)
         """
         v1 = cls.getActiveVersion()
         if v1 not in VERSIONS:

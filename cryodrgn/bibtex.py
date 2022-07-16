@@ -26,25 +26,25 @@
 # **************************************************************************
 """
 @article{Zhong2021,
-	doi = {10.1038/s41592-020-01049-4},
-	year = 2021,
-	month = {feb},
-	volume = {18},
-	number = {2},
-	pages = {176--185},
-	author = {Ellen D. Zhong and Tristan Bepler and Bonnie Berger and Joseph H. Davis},
-	title = {{CryoDRGN}: reconstruction of heterogeneous cryo-{EM} structures using neural networks},
-	journal = {Nature Methods}
+ doi = {10.1038/s41592-020-01049-4},
+ year = 2021,
+ month = {feb},
+ volume = {18},
+ number = {2},
+ pages = {176--185},
+ author = {Ellen D. Zhong and Tristan Bepler and Bonnie Berger and Joseph H. Davis},
+ title = {{CryoDRGN}: reconstruction of heterogeneous cryo-{EM} structures using neural networks},
+ journal = {Nature Methods}
 }
 
 @article{Zhong2020,
-  title={Reconstructing continuous distributions of 3D protein structure from cryo-EM images.},
-  author={Zhong, Ellen D. and Bepler, Tristan and Davis, Joseph H. and Berger, Bonnie},
-  journal={ICLR},
-  volume={0},
-  number={0},
-  pages={0},
-  year={2020},
-  doi = {https://arxiv.org/abs/1909.05215}
+ title={Reconstructing continuous distributions of 3D protein structure from cryo-EM images.},
+ author={Zhong, Ellen D. and Bepler, Tristan and Davis, Joseph H. and Berger, Bonnie},
+ journal={ICLR},
+ volume={0},
+ number={0},
+ pages={0},
+ year={2020},
+ doi = {https://arxiv.org/abs/1909.05215}
 }
 """
