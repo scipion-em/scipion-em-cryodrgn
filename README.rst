@@ -41,7 +41,7 @@ b) Developer's version
 
     .. code-block::
 
-        git clone https://github.com/scipion-em/scipion-em-cryodrgn.git
+        git clone -b devel https://github.com/scipion-em/scipion-em-cryodrgn.git
 
    * install
 
