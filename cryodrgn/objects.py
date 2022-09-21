@@ -27,7 +27,7 @@
 # **************************************************************************
 
 import pyworkflow.object as pwobj
-from pwem.objects import EMObject
+from pwem.objects import EMObject, SetOfParticles
 
 
 class CryoDrgnParticles(EMObject):
@@ -51,3 +51,14 @@ class CryoDrgnParticles(EMObject):
 
     def getXDim(self):
         return self.dim.get()
+
+
+class SetOfCryoDrgnParticles(SetOfParticles):
+    """
+    Extended class of particles with new attributes.
+    These new attributes will be used by the flexibility viewer.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.weights = pwobj.String()
+        self.config = pwobj.String()

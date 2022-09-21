@@ -162,6 +162,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                                    samplingRate=self._getSamplingRate())
 
         self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
+        self._defineSourceRelation(output, self.inputParticles.get())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

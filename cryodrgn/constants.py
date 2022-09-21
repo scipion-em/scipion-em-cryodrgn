@@ -47,3 +47,7 @@ EPOCH_SELECTION = 1
 
 VOLUME_SLICES = 0
 VOLUME_CHIMERA = 1
+
+# z_value metadata constant
+Z_VALUES = '_zCryoDRGValues'
+

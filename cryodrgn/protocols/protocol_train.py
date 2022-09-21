@@ -25,11 +25,15 @@
 # **************************************************************************
 
 import os
+import pickle
 
 import pyworkflow.utils as pwutils
+from cryodrgn.objects import SetOfCryoDrgnParticles
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
+import pyworkflow.object as pwobj
 from pwem.protocols import ProtProcessParticles
+import pwem.objects as emobj
 
 from cryodrgn import Plugin
 from cryodrgn.constants import *
@@ -43,6 +47,23 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     """
     _label = 'training'
     _devStatus = PROD
+
+    def _defineFileNames(self):
+        """ Centralize how files are called within the protocol. """
+        self.epochDir = os.path.join(self.getOutputDir(), 'analyze.%d' % self._epoch)
+
+        def _out(f):
+            return os.path.join(self.epochDir, f)
+
+        myDict = {
+        'output_vol': _out('vol_%(id)03d.mrc'),
+        'output_volN': _out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
+        'z_values':  _out('z_values.txt'),
+        'z_valuesN': _out('kmeans%(ksamples)d/z_values.txt'),
+        'weights': os.path.join(self.getOutputDir(), 'weights.pkl'),
+        'config': os.path.join(self.getOutputDir(), 'config.pkl')
+        }
+        self._updateFilenamesDict(myDict)
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -121,12 +142,14 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('runTrainingStep')
+        self._insertFunctionStep(self.runTrainingStep)
         if self.viewEpoch == EPOCH_LAST:
-            epoch = self.numEpochs.get() - 1
+            self._epoch = self.numEpochs.get() - 1
         else:
-            epoch = self.epochNum.get()
-        self._insertFunctionStep('runAnalysisStep', epoch)
+            self._epoch = self.epochNum.get()
+        self._defineFileNames()
+        self._insertFunctionStep(self.runAnalysisStep, self._epoch)
+        self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
@@ -143,6 +166,22 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             epoch: epoch number to be analyzed.
         """
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
+
+    def createOutputStep(self):
+        """
+        Create the protocol outputs
+        """
+        # Creating a set of particles with z_values
+        outImgSet = self._createParticleSet()
+        self._defineOutputs(Particles=outImgSet)
+
+        # Creating a set of volumes with z_values
+        fn = self._getExtraPath('volumes.sqlite')
+        samplingRate = self.inputParticles.get().getSamplingRate()
+        files, zValues = self._getVolumes()
+        setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
+        self._defineOutputs(Volumes=setOfVolumes)
+        self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -197,6 +236,121 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         gpus = ','.join(str(i) for i in self.getGpuList())
         self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
 
+    def _getVolumes(self):
+        vols = []
+        if self.hasMultLatentVars():
+            fn = 'output_volN'
+            num = self.ksamples.get()
+            zValue = 'z_valuesN'
+            zValues = self._getVolumeZvalues(self._getFileName(zValue,
+                                                               ksamples=num))
+        else:
+            fn = 'output_vol'
+            num = 10
+            zValue = 'z_values'
+            zValues = self._getVolumeZvalues(self._getFileName(zValue))
+
+        for volId in range(num):
+            if self.hasMultLatentVars():
+                volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
+                                          id=volId)
+            else:
+                volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
+
+            if os.path.exists(volFn):
+                vols.append(volFn)
+            else:
+                raise FileNotFoundError("Volume %s does not exists. \n"
+                                        "Please select a valid epoch "
+                                        "number." % volFn)
+        return vols, zValues
+
+    def _getParticlesZvalues(self):
+        """
+        Read from z.pkl file the particles z_values
+        :return: a numpy array with the particles z_values
+        """
+        zEpochFile = self.getEpochZFile(self._epoch)
+        with open(zEpochFile, 'rb') as f:
+            zValues = pickle.load(f)
+        return zValues
+
+    def _createParticleSet(self):
+        """
+        Create a set of particles with de associated z_values
+        :return: a set of particles
+        """
+        fn = self._getPath('particles.sqlite')
+        zValues = self._getParticlesZvalues()
+        cryoDRGParticles = self.inputParticles.get()
+        ImgSet = self.getProject().getProtocol(cryoDRGParticles.getObjParentId()).inputParticles.get()
+        outImgSet = SetOfCryoDrgnParticles(filename=fn)
+        outImgSet.weights.set(self._getFileName('weights'))
+        outImgSet.config.set(self._getFileName('config'))
+
+        outImgSet.copyInfo(ImgSet)
+        for img in ImgSet:
+            particle = img.clone()
+            vector = pwobj.CsvList()
+            # We assume that each row "i" of z_values corresponds to each
+            # particle with ID "i"
+            vector._convertValue(list(zValues[particle.getObjId()-1]))
+            # Creating a new column in the volumes with the z_value
+            setattr(particle, Z_VALUES, vector.clone())
+            outImgSet.append(particle)
+        outImgSet.write()
+        outImgSet.close()
+
+        return outImgSet
+
+    def _getVolumeZvalues(self, zValueFile):
+        """
+        Read from z_values.txt file the volume z_values
+        :return: an array with the volumes z_values
+        """
+        zValues = []
+
+        with open(zValueFile, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                vector = [float(li) for li in line.split(' ')]
+                zValues.append(vector)
+
+        return zValues
+
+    def _createVolumeSet(self, files, zValues, path, samplingRate,
+                            updateItemCallback=None):
+        """
+        Create a set of volume with the associated z_values
+        :param files: list of the volumes path
+        :param zValues: array with the volumes z_values
+        :param path: output path
+        :param samplingRate: volumes sampling rate
+        :return: a set of volumes
+        """
+        pwutils.cleanPath(path)
+        volSet = emobj.SetOfVolumes(filename=path)
+        volSet.setSamplingRate(samplingRate)
+        volId = 0
+
+        for volFn in files:
+            vol = emobj.Volume()
+            vol.setFileName(volFn)
+            vector = pwobj.CsvList()
+            # We assume that each row "i" of z_values corresponds to each
+            # volumes with ID "i"
+            vector._convertValue(zValues[volId])
+            # Creating a new column in the volumes with the z_value
+            setattr(vol, Z_VALUES, vector.clone())
+            if updateItemCallback:
+                updateItemCallback(vol)
+            volSet.append(vol)
+            volId += 1
+        volSet.write()
+        volSet.close()
+
+        return volSet
+
     def getOutputDir(self):
         return self._getPath('output')
 
@@ -210,3 +364,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             epoch += 1
 
         return epoch
+
+    def hasMultLatentVars(self):
+        return self.zDim > 1

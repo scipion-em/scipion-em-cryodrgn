@@ -64,8 +64,6 @@ class CryoDrgnViewer(EmProtocolViewer):
             'output_umaphex': _out('umap_hexbin.png'),
             'output_pca': _out('z_pca.png'),
             'output_pcahex': _out('z_pca_hexbin.png'),
-            'output_vol': _out('vol_%(id)03d.mrc'),
-            'output_volN': _out('kmeans20/vol_%(id)03d.mrc'),
         })
 
     def _defineParams(self, form):
@@ -85,7 +83,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                       label='Display volume with',
                       help='*slices*: display volumes as 2D slices along z axis.\n'
                            '*chimera*: display volumes as surface with Chimera.')
-        if self.hasMultLatentVars():
+        if self.protocol.hasMultLatentVars():
             form.addParam('useHexBin', BooleanParam, default=False,
                           label="Use hexagonal bins for the plots?")
             form.addParam('doShowPCA', LabelParam,
@@ -119,7 +117,7 @@ class CryoDrgnViewer(EmProtocolViewer):
             'doShowNotebook': self._showNotebook
         }
 
-        if self.hasMultLatentVars():
+        if self.protocol.hasMultLatentVars():
             visDict.update({
                 'doShowPCA': self._showPCA,
                 'doShowUMAP': self._showUMAP
@@ -137,14 +135,14 @@ class CryoDrgnViewer(EmProtocolViewer):
             if self.displayVol == VOLUME_CHIMERA:
                 return self._showVolumesChimera()
             elif self.displayVol == VOLUME_SLICES:
-                return self._createVolumesSqlite()
+                return self._showVolumeSlices()
         except Exception as e:
             self.showError(str(e))
 
     def _showVolumesChimera(self):
         """ Create a chimera script to visualize selected volumes. """
         prot = self.protocol
-        volumes = self._getVolumeNames()
+        volumes = prot._getVolumeNames()
         extra = prot._getExtraPath()
         cmdFile = prot._getExtraPath('chimera_volumes.cxc')
 
@@ -159,14 +157,9 @@ class CryoDrgnViewer(EmProtocolViewer):
 
         return [view]
 
-    def _createVolumesSqlite(self):
-        """ Write an sqlite with all volumes selected for visualization. """
-        prot = self.protocol  # shortcut
-        path = prot._getExtraPath('viewer_volumes.sqlite')
-        samplingRate = prot.inputParticles.get().getSamplingRate()
-        files = self._getVolumeNames()
-        self.createVolumesSqlite(files, path, samplingRate)
-
+    def _showVolumeSlices(self):
+        """ Write a sqlite with all volumes selected for visualization. """
+        path = self.protocol._getExtraPath('volumes.sqlite')
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
     def _showPlot(self, fn, epoch):
@@ -225,25 +218,6 @@ class CryoDrgnViewer(EmProtocolViewer):
         thread = Thread(target=_extraWork)
         thread.start()
 
-    def _getVolumeNames(self):
-        vols = []
-        if self.hasMultLatentVars():
-            fn = 'output_volN'
-            num = 20
-        else:
-            fn = 'output_vol'
-            num = 10
-
-        for volId in range(num):
-            volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
-            if os.path.exists(volFn):
-                vols.append(volFn)
-            else:
-                raise FileNotFoundError("Volume %s does not exists. \n"
-                                        "Please select a valid epoch "
-                                        "number." % volFn)
-        return vols
-
     def getEpoch(self):
         """ Get the epoch number for visualisation. """
         if self.viewEpoch == EPOCH_LAST:
@@ -251,5 +225,3 @@ class CryoDrgnViewer(EmProtocolViewer):
         else:
             return self.epochNum.get()
 
-    def hasMultLatentVars(self):
-        return self.protocol.zDim > 1
