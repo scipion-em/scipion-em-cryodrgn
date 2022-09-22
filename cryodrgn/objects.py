@@ -62,3 +62,11 @@ class SetOfCryoDrgnParticles(SetOfParticles):
         super().__init__(**kwargs)
         self.weights = pwobj.String()
         self.config = pwobj.String()
+
+    def getWeights(self):
+        return self.weights.get()
+
+    def getConfig(self):
+        return self.config.get()
+
+

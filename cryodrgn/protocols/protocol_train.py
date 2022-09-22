@@ -60,7 +60,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         'output_volN': _out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
         'z_values':  _out('z_values.txt'),
         'z_valuesN': _out('kmeans%(ksamples)d/z_values.txt'),
-        'weights': os.path.join(self.getOutputDir(), 'weights.pkl'),
+        'weights': os.path.join(self.getOutputDir(), 'weights.%d.pkl' % self._epoch),
         'config': os.path.join(self.getOutputDir(), 'config.pkl')
         }
         self._updateFilenamesDict(myDict)
