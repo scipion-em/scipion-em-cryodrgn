@@ -68,5 +68,3 @@ class SetOfCryoDrgnParticles(SetOfParticles):
 
     def getConfig(self):
         return self.config.get()
-
-

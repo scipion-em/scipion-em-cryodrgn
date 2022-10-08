@@ -26,7 +26,6 @@
 
 import os
 from enum import Enum
-from emtable import Table
 
 import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
@@ -35,7 +34,7 @@ import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ
 from pwem.protocols import ProtProcessParticles
 
-from cryodrgn import Plugin, V1_0_0
+from cryodrgn import Plugin
 from cryodrgn.objects import CryoDrgnParticles
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
@@ -101,7 +100,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         form.addParam('chunk', params.IntParam, default=0,
                       label='Split in chunks',
-                      help='Chunksize (in # of images) to split '
+                      help='Chunk size (in # of images) to split '
                            'particle stack when saving.')
 
         form.addParam('doInvert', params.BooleanParam, default=True,
@@ -113,11 +112,11 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
         self._createFilenameTemplates()
-        self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('runDownSampleStep')
-        self._insertFunctionStep('runParsePosesStep')
-        self._insertFunctionStep('runParseCtfStep')
-        self._insertFunctionStep('createOutputStep')
+        self._insertFunctionStep(self.convertInputStep)
+        self._insertFunctionStep(self.runDownSampleStep)
+        self._insertFunctionStep(self.runParsePosesStep)
+        self._insertFunctionStep(self.runParseCtfStep)
+        self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
@@ -162,13 +161,13 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                                    samplingRate=self._getSamplingRate())
 
         self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
-        self._defineSourceRelation(output, self.inputParticles.get())
+        self._defineSourceRelation(self.inputParticles, output)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
         self._createFilenameTemplates()
-        if not os.path.exists(self._getFileName("output_ctfs")):
+        if not self.isFinished():
             summary.append("Output not ready")
         else:
             summary.append("Created poses and ctf files for cryoDRGN.")
@@ -180,7 +179,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         particles = self._getInputParticles()
         if not particles.hasCTF():
-            errors.append("The input has no CTF values!")
+            errors.append("The input particles have no CTF info!")
 
         if self.doScale and self.scaleSize > particles.getXDim():
             errors.append("You cannot upscale particles!")
@@ -191,14 +190,10 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     def _getPreprocessArgs(self):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_parts'),
-                '--datadir %s' % self._getDataDir(),
                 '-D %d' % self._getBoxSize(),
                 '--window-r %0.2f' % self.winSize if self.doWindow else '--no-window',
                 '--max-threads %d ' % self.numberOfThreads
                 ]
-
-        if not Plugin.versionGE(V1_0_0):
-            args.append('--relion31')
 
         if not self.doInvert:
             args.append('--uninvert-data')
@@ -210,31 +205,14 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def _getParsePosesArgs(self):
         args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_poses'),
-                '-D %d' % self._getBoxSize(),
-                '--Apix %0.3f' % self._getSamplingRate()]
-
-        if not Plugin.versionGE(V1_0_0):
-            args.append('--relion31')
+                '-o %s ' % self._getFileName('output_poses')]
 
         return args
 
     def _getParseCtfArgs(self):
         args = ['%s ' % self._getFileName('input_parts'),
                 '-o %s ' % self._getFileName('output_ctfs'),
-                '-D %d' % self._getBoxSize(),
-                '--Apix %0.3f' % self._getSamplingRate()]
-
-        if not Plugin.versionGE(V1_0_0):
-            args.append('--relion31')
-
-        cs, amp, kv, ps = self._getExtraCtfParams()
-        args.extend(['--kv %f ' % kv,
-                     '--cs %f' % cs,
-                     '-w %f' % amp])
-
-        if ps == 0:  # no phase shift found
-            args.append('--ps 0')
+                '--ps 0']  # required due to cryodrgn parsing bug
 
         return args
 
@@ -251,33 +229,11 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         inputSet = self._getInputParticles()
         oldSampling = inputSet.getSamplingRate()
         scaleFactor = self._getScaleFactor(inputSet)
-        newSampling = oldSampling * scaleFactor
 
-        return newSampling
+        return oldSampling * scaleFactor
 
     def _getScaleFactor(self, inputSet):
-        return inputSet.getXDim() / float(self._getBoxSize())
-
-    def _getDataDir(self):
-        """ We assume all mrcs stacks are in the same folder. """
-        part = self._getInputParticles().getFirstItem()
-        _, fn = part.getLocation()
-
-        return os.path.dirname(fn)
-
-    def _getExtraCtfParams(self):
-        """Remove once optics parsing is implemented in parse_ctf_star"""
-        mdOptics = Table(fileName=self._getFileName('input_parts'),
-                         tableName='optics')[0]
-        cs = mdOptics.rlnSphericalAberration
-        amp = mdOptics.rlnAmplitudeContrast
-        kv = mdOptics.rlnVoltage
-
-        mdParts = Table(fileName=self._getFileName('input_parts'),
-                        tableName='particles')[0]
-        ps = getattr(mdParts, 'rlnCtfPhaseShift', 0)
-
-        return cs, amp, kv, ps
+        return inputSet.getXDim() / self._getBoxSize()
 
     def _runProgram(self, program, args):
         self.runJob(Plugin.getProgram(program), ' '.join(args))

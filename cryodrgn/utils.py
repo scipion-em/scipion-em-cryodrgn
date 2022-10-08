@@ -1,7 +1,8 @@
 import os
 import numpy as np
+
 from pyworkflow.utils.process import runJob
-from cryodrgn import Plugin
+from . import Plugin
 
 
 def generateVolumes(zValues, weights, config, outdir, apix=1, flip=False,

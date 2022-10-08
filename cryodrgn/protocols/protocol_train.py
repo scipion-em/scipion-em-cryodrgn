@@ -48,7 +48,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
     _label = 'training'
     _devStatus = PROD
 
-    def _defineFileNames(self):
+    def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
         self.epochDir = os.path.join(self.getOutputDir(), 'analyze.%d' % self._epoch)
 
@@ -56,12 +56,12 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             return os.path.join(self.epochDir, f)
 
         myDict = {
-        'output_vol': _out('vol_%(id)03d.mrc'),
-        'output_volN': _out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
-        'z_values':  _out('z_values.txt'),
-        'z_valuesN': _out('kmeans%(ksamples)d/z_values.txt'),
-        'weights': os.path.join(self.getOutputDir(), 'weights.%d.pkl' % self._epoch),
-        'config': os.path.join(self.getOutputDir(), 'config.pkl')
+            'output_vol': _out('vol_%(id)03d.mrc'),
+            'output_volN': _out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
+            'z_values':  _out('z_values.txt'),
+            'z_valuesN': _out('kmeans%(ksamples)d/z_values.txt'),
+            'weights': os.path.join(self.getOutputDir(), 'weights.%d.pkl' % self._epoch),
+            'config': os.path.join(self.getOutputDir(), 'config.pkl')
         }
         self._updateFilenamesDict(myDict)
 
@@ -147,7 +147,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             self._epoch = self.numEpochs.get() - 1
         else:
             self._epoch = self.epochNum.get()
-        self._defineFileNames()
+        self._createFilenameTemplates()
         self._insertFunctionStep(self.runAnalysisStep, self._epoch)
         self._insertFunctionStep(self.createOutputStep)
 
@@ -212,9 +212,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             '--dec-layers %d' % self.pLayers,
             '--dec-dim %d' % self.pDim
         ]
-
-        if not Plugin.versionGE(V1_0_0):
-            args.append('--relion31')
 
         if len(self.getGpuList()) > 1:
             args.append('--multigpu')
@@ -319,7 +316,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         return zValues
 
     def _createVolumeSet(self, files, zValues, path, samplingRate,
-                            updateItemCallback=None):
+                         updateItemCallback=None):
         """
         Create a set of volume with the associated z_values
         :param files: list of the volumes path

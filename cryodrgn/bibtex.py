@@ -25,6 +25,17 @@
 # *
 # **************************************************************************
 """
+
+@article{Kinman2022,
+  doi = {10.1101/2022.08.09.503342},
+  url = {https://doi.org/10.1101/2022.08.09.503342},
+  year = {2022},
+  month = aug,
+  publisher = {Cold Spring Harbor Laboratory},
+  author = {Laurel F. Kinman and Barrett M. Powell and Ellen D. Zhong and Bonnie Berger and Joseph H. Davis},
+  title = {Uncovering structural ensembles from single particle cryo-{EM} data using {cryoDRGN}}
+}
+
 @article{Zhong2021,
  doi = {10.1038/s41592-020-01049-4},
  year = 2021,

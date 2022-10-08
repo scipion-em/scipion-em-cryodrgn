@@ -224,4 +224,3 @@ class CryoDrgnViewer(EmProtocolViewer):
             return self.protocol.getLastEpoch()
         else:
             return self.epochNum.get()
-

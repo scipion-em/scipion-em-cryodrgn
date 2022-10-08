@@ -1,3 +1,8 @@
+3.7:
+    - drop support for v<1.0.0
+    - remove emtable requirement
+    - update citations
+    - update the installer
 3.6.1: fix error when no downsampling was done, preprocess step cannot be skipped
 3.6:
     - add possible outputs class
