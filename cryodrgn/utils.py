@@ -20,6 +20,7 @@ def generateVolumes(zValues, weights, config, outdir, apix=1, flip=False,
 def _getEvalVolArgs(zvalues, weights, config, outdir, apix, flip, downsample, invert):
     if not os.path.exists(outdir):
         os.mkdir(outdir)
+
     np.savetxt(f'{outdir}/zfile.txt', zvalues)
     zfilePath = os.path.abspath(os.path.join(outdir, 'zfile.txt'))
 

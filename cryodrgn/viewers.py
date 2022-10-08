@@ -50,11 +50,10 @@ class CryoDrgnViewer(EmProtocolViewer):
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
         prot = self.protocol
-        self._epoch = self.getEpoch()
-        epochDir = os.path.join(prot.getOutputDir(), 'analyze.%d' % self._epoch)
+        self._epoch = prot.getLastEpoch()
 
         def _out(f):
-            return os.path.join(epochDir, f)
+            return os.path.join(prot.getOutputDir(f'analyze.{self._epoch}'), f)
 
         self._updateFilenamesDict({
             'output_notebook': _out('cryoDRGN_viz.ipynb'),
@@ -68,13 +67,13 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
-        form.addParam('viewEpoch', EnumParam,
-                      choices=['last', 'selection'], default=EPOCH_LAST,
-                      display=EnumParam.DISPLAY_LIST,
-                      label="Epoch to analyze")
-        form.addParam('epochNum', IntParam,
-                      condition='viewEpoch==%d' % EPOCH_SELECTION,
-                      label="Epoch number")
+        form.addHidden('viewEpoch', EnumParam,
+                       choices=['last', 'selection'], default=EPOCH_LAST,
+                       display=EnumParam.DISPLAY_LIST,
+                       label="Epoch to analyze")
+        form.addHidden('epochNum', IntParam,
+                       condition='viewEpoch==%d' % EPOCH_SELECTION,
+                       label="Epoch number")
 
         form.addParam('displayVol', EnumParam,
                       choices=['slices', 'chimera'],
@@ -142,7 +141,7 @@ class CryoDrgnViewer(EmProtocolViewer):
     def _showVolumesChimera(self):
         """ Create a chimera script to visualize selected volumes. """
         prot = self.protocol
-        volumes = prot._getVolumeNames()
+        volumes, _ = prot._getVolumes()
         extra = prot._getExtraPath()
         cmdFile = prot._getExtraPath('chimera_volumes.cxc')
 
@@ -158,7 +157,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         return [view]
 
     def _showVolumeSlices(self):
-        """ Write a sqlite with all volumes selected for visualization. """
+        """ Open a sqlite with all volumes selected for visualization. """
         path = self.protocol._getExtraPath('volumes.sqlite')
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
@@ -217,10 +216,3 @@ class CryoDrgnViewer(EmProtocolViewer):
         from threading import Thread
         thread = Thread(target=_extraWork)
         thread.start()
-
-    def getEpoch(self):
-        """ Get the epoch number for visualisation. """
-        if self.viewEpoch == EPOCH_LAST:
-            return self.protocol.getLastEpoch()
-        else:
-            return self.epochNum.get()

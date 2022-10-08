@@ -62,8 +62,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         myDict = {
             'input_parts': self._getExtraPath('input_particles.star'),
             'output_folder': out(),
-            'output_parts_root': out('particles.%d.' % self._getBoxSize()),
             'output_parts': out('particles.%d.mrcs' % self._getBoxSize()),
+            'output_txt': out('particles.%d.ft.txt' % self._getBoxSize()),
             'output_poses': out('poses.pkl'),
             'output_ctfs': out('ctfs.pkl'),
         }
@@ -114,8 +114,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         self._createFilenameTemplates()
         self._insertFunctionStep(self.convertInputStep)
         self._insertFunctionStep(self.runDownSampleStep)
-        self._insertFunctionStep(self.runParsePosesStep)
-        self._insertFunctionStep(self.runParseCtfStep)
+        self._insertFunctionStep(self.runParseMdStep)
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
@@ -134,27 +133,12 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     def runDownSampleStep(self):
         self._runProgram('preprocess', self._getPreprocessArgs())
 
-    def runParsePosesStep(self):
+    def runParseMdStep(self):
         self._runProgram('parse_pose_star', self._getParsePosesArgs())
-
-    def runParseCtfStep(self):
         self._runProgram('parse_ctf_star', self._getParseCtfArgs())
 
     def createOutputStep(self):
-        outputParts = self._getFileName('output_parts')
-        outputPartsTxt = outputParts.replace('.mrcs', '.txt')
-        outputPartsFtTxt = outputParts.replace('.mrcs', '.ft.txt')
-
-        if os.path.exists(outputPartsTxt):
-            outputFn = outputPartsTxt
-        elif os.path.exists(outputPartsFtTxt):
-            outputFn = outputPartsFtTxt
-        elif os.path.exists(outputParts):
-            outputFn = outputParts
-        else:
-            raise FileNotFoundError('Could not find any output files')
-
-        output = CryoDrgnParticles(filename=outputFn,
+        output = CryoDrgnParticles(filename=self._getFileName('output_txt'),
                                    poses=self._getFileName('output_poses'),
                                    ctfs=self._getFileName('output_ctfs'),
                                    dim=self._getBoxSize() + 1,
