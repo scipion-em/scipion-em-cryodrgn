@@ -32,13 +32,13 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.6.1'
-_references = ['Zhong2020', 'Zhong2021']
+__version__ = '3.7'
+_references = ['Zhong2020', 'Zhong2021', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
 
 class Plugin(pwem.Plugin):
-    _url = "https://github.com/scipion-em/scipion-em-cryodrgn"
+    _url = "https://zhonge.github.io/cryodrgn/"
     _supportedVersions = VERSIONS
 
     @classmethod
@@ -81,26 +81,19 @@ class Plugin(pwem.Plugin):
 
     @classmethod
     def addCryoDrgnPackage(cls, env, version, default=False):
-        CRYODRGN_INSTALLED = 'cryodrgn_%s_installed' % version
         ENV_NAME = getCryoDrgnEnvName(version)
+        FLAG = f"cryodrgn_{version}_installed"
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            'conda create -y -n %s python=%s;' % (ENV_NAME, '3.9' if cls.versionGE(V0_3_4) else '3.7'),
-            'conda activate %s;' % ENV_NAME,
-            'conda install -y "pytorch%s" cudatoolkit -c pytorch &&' % '' if cls.versionGE(V0_3_4) else '<1.9.0',  # PyTorch 1.9+ is not working for v<0.3.5
-            'conda install -y pandas seaborn scikit-learn &&',
-            'conda install -y umap-learn jupyterlab ipywidgets cufflinks-py "nodejs>=15.12.0" -c conda-forge &&',
-            'jupyter labextension install @jupyter-widgets/jupyterlab-manager --no-build &&',
-            'jupyter labextension install jupyterlab-plotly --no-build &&',
-            'jupyter labextension install plotlywidget --no-build &&',
-            'jupyter lab build &&',
+            f'conda create -y -n {ENV_NAME} python=3.9 && ',
+            f'conda activate {ENV_NAME} && ',
+            'conda install -y pytorch cudatoolkit -c pytorch &&',
             'pip install -e . &&',
-            'touch %s' % CRYODRGN_INSTALLED  # Flag installation finished
+            f'touch {FLAG}'  # Flag installation finished
         ]
 
-        cryodrgnCmds = [(" ".join(installCmds), CRYODRGN_INSTALLED)]
-
+        cryodrgnCmds = [(" ".join(installCmds), FLAG)]
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None

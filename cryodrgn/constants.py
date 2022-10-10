@@ -29,12 +29,10 @@ def getCryoDrgnEnvName(version):
     return "cryodrgn-%s" % version
 
 
-V0_3_4 = "0.3.4"
-V0_3_5 = "0.3.5"
 V1_0_0 = "1.0.0"
 V1_1_0 = "1.1.0"
 
-VERSIONS = [V0_3_4, V0_3_5, V1_0_0, V1_1_0]
+VERSIONS = [V1_0_0, V1_1_0]
 CRYODRGN_DEFAULT_VER_NUM = VERSIONS[-1]
 
 DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)
@@ -47,3 +45,8 @@ EPOCH_SELECTION = 1
 
 VOLUME_SLICES = 0
 VOLUME_CHIMERA = 1
+
+# extra metadata attrs
+Z_VALUES = "_cryodrgnZValues"
+WEIGHTS = "_cryodrgnWeights"
+CONFIG = "_cryodrgnConfig"

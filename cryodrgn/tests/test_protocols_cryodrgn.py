@@ -58,7 +58,7 @@ class TestCryoDrgn(BaseTest):
         cls.protImport = cls.runImportParticlesStar(cls.partFn, 50000, 3.54)
 
     def runPreprocess(self, protLabel, particles, **kwargs):
-        print(magentaStr("\n==> Testing cryoDRGN - preprocess:"))
+        print(magentaStr(f"\n==> Testing cryoDRGN - {protLabel}:"))
         protPreprocess = self.newProtocol(CryoDrgnProtPreprocess,
                                           objLabel=protLabel, **kwargs)
         protPreprocess.inputParticles.set(particles)
@@ -96,6 +96,6 @@ class TestCryoDrgn(BaseTest):
 
         print(magentaStr("\n==> Testing cryoDRGN - training:"))
 
-        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3, zDim=1)
+        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3, zDim=2)
         protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
         self.launchProtocol(protTrain)
