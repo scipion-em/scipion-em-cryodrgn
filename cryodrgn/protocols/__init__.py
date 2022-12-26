@@ -26,3 +26,4 @@
 
 from .protocol_preprocess import CryoDrgnProtPreprocess
 from .protocol_train import CryoDrgnProtTrain
+from .protocol_abinitio import CryoDrgnProtAbinitio

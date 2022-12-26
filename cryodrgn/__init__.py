@@ -32,8 +32,8 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.7'
-_references = ['Zhong2020', 'Zhong2021', 'Kinman2022']
+__version__ = '3.8b1'
+_references = ['Zhong2020', 'Zhong2021', 'Kinman2022', 'Zhong2021b']
 _logo = "cryodrgn_logo.png"
 
 
@@ -86,9 +86,9 @@ class Plugin(pwem.Plugin):
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda create -y -n {ENV_NAME} python=3.9 && ',
-            f'conda activate {ENV_NAME} && ',
-            'conda install -y pytorch cudatoolkit -c pytorch &&',
+            f'conda create -y -n {ENV_NAME} python=3.9 &&',
+            f'conda activate {ENV_NAME} &&',
+            'conda install -y pytorch-gpu cudatoolkit=11.6 -c pytorch -c conda-forge &&',
             'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
@@ -97,12 +97,29 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
-        env.addPackage('cryodrgn', version=version,
-                       url='https://github.com/zhonge/cryodrgn/archive/refs/tags/%s.tar.gz' % version,
-                       commands=cryodrgnCmds,
-                       neededProgs=cls.getDependencies(),
-                       default=default,
-                       vars=installEnvVars)
+
+        if version != V2_0:
+            env.addPackage('cryodrgn', version=version,
+                           url=f"https://github.com/zhonge/cryodrgn/archive/refs/tags/{version}.tar.gz",
+                           commands=cryodrgnCmds,
+                           neededProgs=cls.getDependencies(),
+                           default=default,
+                           vars=installEnvVars)
+
+        else:  # FIXME: remove once v2.0 is released
+            gitCmds = [
+                'cd .. &&',
+                'git clone -b master https://github.com/zhonge/cryodrgn.git cryodrgn-2.0 &&',
+                'cd cryodrgn-2.0;'
+            ]
+            gitCmds.extend(installCmds)
+            cryodrgnCmds = [(" ".join(gitCmds), FLAG)]
+            env.addPackage('cryodrgn', version=version,
+                           tar='void.tgz',
+                           commands=cryodrgnCmds,
+                           neededProgs=cls.getDependencies(),
+                           default=False,
+                           vars=installEnvVars)
 
     @classmethod
     def getActivationCmd(cls):

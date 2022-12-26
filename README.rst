@@ -74,13 +74,14 @@ To check the installation, simply run the following Scipion test:
 Supported versions
 ------------------
 
-1.0.0, 1.1.0
+1.0.0, 1.1.0, 2.0
 
 Protocols
 ----------
 
 * preprocess
-* training
+* training VAE
+* training ab initio
 
 References
 -----------
@@ -88,3 +89,4 @@ References
 1. Uncovering structural ensembles from single particle cryo-EM data using cryoDRGN. Laurel Kinman, Barrett Powell, Ellen Zhong, Bonnie Berger, Joey Davis. https://www.biorxiv.org/content/10.1101/2022.08.09.503342v1
 2. CryoDRGN: Reconstruction of heterogeneous cryo-EM structures using neural networks. Ellen D. Zhong, Tristan Bepler, Bonnie Berger, Joseph H. Davis. Nature Methods 18(2), 2021, 176-182. DOI 10.1038/s41592-020-01049-4
 3. Reconstructing continuous distributions of 3D protein structure from cryo-EM images. Ellen D. Zhong, Tristan Bepler, Joseph H. Davis, Bonnie Berger. ICLR 2020, https://arxiv.org/abs/1909.05215
+4. CryoDRGN2: Ab Initio Neural Reconstruction of 3D Protein Structures From Real Cryo-EM Images. Ellen D. Zhong, Adam Lerer, Joseph H. Davis, Bonnie Berger; Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), 2021, pp. 4066-4075. https://openaccess.thecvf.com/content/ICCV2021/html/Zhong_CryoDRGN2_Ab_Initio_Neural_Reconstruction_of_3D_Protein_Structures_From_ICCV_2021_paper.html

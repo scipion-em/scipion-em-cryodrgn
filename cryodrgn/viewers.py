@@ -33,7 +33,7 @@ from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
 from cryodrgn import Plugin
-from .protocols import CryoDrgnProtTrain
+from .protocols import CryoDrgnProtTrain, CryoDrgnProtAbinitio
 from .constants import *
 
 
@@ -41,7 +41,7 @@ class CryoDrgnViewer(EmProtocolViewer):
     """ Visualization of cryoDRGN results. """
 
     _environments = [DESKTOP_TKINTER]
-    _targets = [CryoDrgnProtTrain]
+    _targets = [CryoDrgnProtTrain, CryoDrgnProtAbinitio]
     _label = 'analyze results'
 
     def __init__(self, **kwargs):

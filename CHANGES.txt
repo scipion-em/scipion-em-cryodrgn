@@ -1,3 +1,4 @@
+3.8: add cryoDRGN2 protocol for ab initio reconstruction
 3.7:
     - drop support for v<1.0.0
     - remove emtable requirement

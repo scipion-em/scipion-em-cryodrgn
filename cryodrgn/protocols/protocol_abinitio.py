@@ -31,7 +31,7 @@ import re
 from glob import glob
 
 import pyworkflow.utils as pwutils
-from pyworkflow.constants import PROD
+from pyworkflow.constants import NEW
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 from pwem.protocols import ProtProcessParticles
@@ -41,12 +41,16 @@ from cryodrgn import Plugin
 from cryodrgn.constants import *
 
 
-class CryoDrgnProtTrain(ProtProcessParticles):
+class CryoDrgnProtAbinitio(ProtProcessParticles):
     """
-    Protocol to train cryoDRGN neural network.
+    Protocol to run ab-initio reconstruction with cryoDRGN2 neural network.
     """
-    _label = 'training VAE'
-    _devStatus = PROD
+    _label = 'training ab initio'
+    _devStatus = NEW
+
+    @classmethod
+    def isDisabled(cls):
+        return not Plugin.versionGE(V2_0)
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
@@ -80,42 +84,38 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                       pointerClass="CryoDrgnParticles",
                       label='CryoDrgn particles')
 
-        form.addParam('zDim', params.IntParam, default=8,
+        form.addParam('protType', params.EnumParam,
+                      choices=['homogeneous', 'heterogeneous'],
+                      default=AB_INITIO_HOMO,
+                      display=params.EnumParam.DISPLAY_HLIST,
+                      label='Ab initio type')
+
+        form.addParam('zDim', params.IntParam, default=1,
                       validators=[params.Positive],
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
                            'resolution images (e.g. D=128) with '
                            '--zdim 1 and with --zdim 10 using the '
                            'default architecture (fast).')
-        form.addParam('numEpochs', params.IntParam, default=20,
+        form.addParam('numEpochs', params.IntParam, default=30,
                       label='Number of epochs',
                       help='The number of epochs refers to the number '
                            'of full passes through the dataset for '
-                           'training, and should be modified depending '
-                           'on the number of particles in the dataset. '
-                           'For a 100k particle dataset, the above '
-                           'settings required ~6 min per epoch for D=128 '
-                           'images + default architecture, ~12 min/epoch '
-                           'for D=128 images + large architecture, and ~47 '
-                           'min per epoch for D=256 images + large architecture.')
+                           'training. For reference, ab initio heterogeneous '
+                           'reconstruction of a recent dataset of ~218k '
+                           '128x128 particles took 20 hours to train '
+                           '(1 V100 GPU).')
 
         form.addSection(label='Advanced')
-        group = form.addGroup('Encoder')
-        group.addParam('qLayers', params.IntParam, default=3,
-                       label='Number of hidden layers')
-        group.addParam('qDim', params.IntParam, default=1024,
-                       label='Number of nodes in hidden layers')
-
-        group = form.addGroup('Decoder')
-        group.addParam('pLayers', params.IntParam, default=3,
-                       label='Number of hidden layers')
-        group.addParam('pDim', params.IntParam, default=1024,
-                       label='Number of nodes in hidden layers')
+        form.addParam('searchRange', params.IntParam, default=10,
+                      label='Translational search range (px)')
+        form.addParam('psFreq', params.IntParam, default=5,
+                      label='Update poses every N epochs')
 
         form.addParam('extraParams', params.StringParam, default="",
                       label="Extra params",
                       help="Here you can provide all extra command-line "
-                           "parameters. See *cryodrgn train_vae -h* for help.")
+                           "parameters. See *cryodrgn abinit_homo -h* for help.")
 
         form.addSection(label='Analysis')
         form.addParam('viewEpoch', params.EnumParam,
@@ -156,7 +156,9 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         pwutils.makePath(self.getOutputDir())
 
         # Call cryoDRGN with the appropriate parameters
-        self._runProgram('train_vae', self._getTrainingArgs())
+        protType = self.protType.get()
+        program = "homo" if protType == AB_INITIO_HOMO else "het"
+        self._runProgram("abinit_" + program, self._getTrainingArgs(protType))
 
     def runAnalysisStep(self, epoch):
         """ Run analysis step.
@@ -181,12 +183,16 @@ class CryoDrgnProtTrain(ProtProcessParticles):
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
-        summary = ["Training VAE for %d epochs." % self.numEpochs]
+        summary = ["Training ab initio for %d epochs." % self.numEpochs]
 
         return summary
 
     def _validate(self):
         errors = []
+
+        if self.zDim > 1 and self.protType.get() == AB_INITIO_HOMO:
+            errors.append("Latent variable must be 1 for "
+                          "homogeneous reconstruction")
 
         if self.viewEpoch == EPOCH_SELECTION:
             ep = self.epochNum.get()
@@ -194,32 +200,33 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             if ep > total:
                 errors.append(f"You can analyse only epochs 1-{total}")
 
-        if self.inputParticles.get().poses is None:
-            errors.append("Input particles have no poses (alignment)!")
-
         return errors
 
+    def _citations(self):
+        return ['Zhong2021b']
+
     # --------------------------- UTILS functions -----------------------------
-    def _getTrainingArgs(self):
+    def _getTrainingArgs(self, protType=AB_INITIO_HOMO):
         parts = self.inputParticles.get()
 
         args = [
             parts.filename.get(),
-            '--poses %s' % parts.poses,
             '--ctf %s' % parts.ctfs,
-            '--zdim %d' % self.zDim,
             '-o %s ' % self.getOutputDir(),
             '-n %d' % self.numEpochs,
-            '--preprocessed',
-            '--max-threads %d ' % self.numberOfThreads,
-            '--enc-layers %d' % self.qLayers,
-            '--enc-dim %d' % self.qDim,
-            '--dec-layers %d' % self.pLayers,
-            '--dec-dim %d' % self.pDim
+            '--t-extent %d' % self.searchRange,
+            '--ps-freq %d' % self.psFreq,
         ]
 
-        if len(self.getGpuList()) > 1:
-            args.append('--multigpu')
+        if protType == AB_INITIO_HETERO:
+            args.extend([
+                '--zdim %d' % self.zDim,
+                '--preprocessed',
+                '--max-threads %d' % self.numberOfThreads,
+            ])
+
+            if len(self.getGpuList()) > 1:
+                args.append('--multigpu')
 
         if self.extraParams.hasValue():
             args.append(self.extraParams.get())
