@@ -84,7 +84,7 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getCryoDrgnEnvName(version)
         FLAG = f"cryodrgn_{version}_installed"
 
-        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.6",
+        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.7",
                                              pattern="cuda")
         toolkit = "%s.%s" % (cudaVersion.major, cudaVersion.minor)
 

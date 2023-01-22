@@ -63,6 +63,8 @@ class CryoDrgnViewer(EmProtocolViewer):
             'output_umaphex': _out('umap_hexbin.png'),
             'output_pca': _out('z_pca.png'),
             'output_pcahex': _out('z_pca_hexbin.png'),
+            'output_vol': _out('vol_%(id)03d.mrc'),
+            'output_volN': _out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
         })
 
     def _defineParams(self, form):
@@ -138,15 +140,41 @@ class CryoDrgnViewer(EmProtocolViewer):
         except Exception as e:
             self.showError(str(e))
 
+    def _getVolumeNames(self):
+        """ Returns a list of volume names for chimerax. """
+        prot = self.protocol
+        vols = []
+        if prot.hasMultLatentVars():
+            fn = 'output_volN'
+            num = prot.ksamples.get()
+        else:
+            fn = 'output_vol'
+            num = 10
+
+        for volId in range(num):
+            if prot.hasMultLatentVars():
+                volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
+                                          id=volId)
+            else:
+                volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
+
+            if os.path.exists(volFn):
+                vols.append(volFn)
+            else:
+                raise FileNotFoundError("Volume %s does not exists. \n"
+                                        "Please select a valid epoch "
+                                        "number." % volFn)
+
+        return vols
+
     def _showVolumesChimera(self):
         """ Create a chimera script to visualize selected volumes. """
         prot = self.protocol
-        volumes, _ = prot._getVolumes()
         extra = prot._getExtraPath()
         cmdFile = prot._getExtraPath('chimera_volumes.cxc')
 
         with open(cmdFile, 'w+') as f:
-            for vol in volumes:
+            for vol in self._getVolumeNames():
                 localVol = os.path.relpath(vol, extra)
                 if os.path.exists(vol):
                     f.write("open %s\n" % localVol)
@@ -158,7 +186,7 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _showVolumeSlices(self):
         """ Open a sqlite with all volumes selected for visualization. """
-        path = self.protocol._getExtraPath('volumes.sqlite')
+        path = self.protocol._getPath('volumes.sqlite')
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
     def _showPlot(self, fn, epoch):

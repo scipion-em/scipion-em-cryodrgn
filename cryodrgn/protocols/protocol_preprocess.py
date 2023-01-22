@@ -74,6 +74,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         form.addSection(label='Input')
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass='SetOfParticles',
+                      pointerCondition='hasCTF',
                       label="Input particles", important=True,
                       help='Select a set of particles from a consensus C1 '
                            '3D refinement.')
@@ -88,9 +89,11 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       help='New box size in pixels, must be even.')
 
         form.addParam('doWindow', params.BooleanParam, default=True,
+                      expertLevel=params.LEVEL_ADVANCED,
                       label="Apply circular mask?")
 
         form.addParam('winSize', params.FloatParam, default=0.85,
+                      expertLevel=params.LEVEL_ADVANCED,
                       condition='doWindow',
                       label="Window size",
                       help="Circular windowing mask inner radius")
@@ -162,20 +165,28 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         errors = []
 
         particles = self._getInputParticles()
-        if not particles.hasCTF():
-            errors.append("The input particles have no CTF info!")
 
         if self.doScale and self.scaleSize > particles.getXDim():
             errors.append("You cannot upscale particles!")
+
+        if self._getBoxSize() % 2 != 0:
+            errors.append("Box size must be even!")
 
         return errors
 
     def _warnings(self):
         warnings = []
 
-        if not self._getInputParticles().hasAlignmentProj():
+        if not self._inputHasAlign():
             warnings.append("Input particles have no alignment, you will only "
                             "be able to use the output for ab initio training!")
+
+        if self._getBoxSize() % 8 != 0:
+            warnings.append("CryoDRGN mixed-precision (AMP) training will "
+                            "require box size divisible by 8. Alternatively, "
+                            "you will have to provide --no-amp option.")
+
+        return warnings
 
     # --------------------------- UTILS functions -----------------------------
     def _getPreprocessArgs(self):

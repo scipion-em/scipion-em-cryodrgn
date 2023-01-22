@@ -175,7 +175,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self.inputParticles.get().getSamplingRate()
         files, zValues = self._getVolumes()
-        setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
+        setOfVolumes = self._createVolumeSet(files, zValues, samplingRate)
         self._defineOutputs(Volumes=setOfVolumes)
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
@@ -265,6 +265,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                 raise FileNotFoundError("Volume %s does not exists. \n"
                                         "Please select a valid epoch "
                                         "number." % volFn)
+
         return vols, zValues
 
     def _getParticlesZvalues(self):
@@ -306,22 +307,23 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         Read from z_values.txt file the volume z_values
         :return: a list with the volumes z_values
         """
-        return np.loadtxt(zValueFile, dtype=float).tolist()
+        return np.loadtxt(zValueFile, dtype=str).tolist()
 
-    def _createVolumeSet(self, files, zValues, path, samplingRate,
+    def _createVolumeSet(self, files, zValues, samplingRate,
                          updateItemCallback=None):
         """
         Create a set of volume with the associated z_values
         :param files: list of the volumes path
-        :param zValues: array with the volumes z_values
-        :param path: output path
+        :param zValues: list with the volumes z_values
         :param samplingRate: volumes sampling rate
         :return: a set of volumes
         """
-        pwutils.cleanPath(path)
-        volSet = emobj.SetOfVolumes(filename=path)
+        volSet = self._createSetOfVolumes()
         volSet.setSamplingRate(samplingRate)
         volId = 0
+        if type(zValues[0]) is not list:
+            # csvList requires each item as a list
+            zValues = [[i] for i in zValues]
 
         for volFn in files:
             vol = emobj.Volume()
@@ -336,8 +338,6 @@ class CryoDrgnProtTrain(ProtProcessParticles):
                 updateItemCallback(vol)
             volSet.append(vol)
             volId += 1
-        volSet.write()
-        volSet.close()
 
         return volSet
 
