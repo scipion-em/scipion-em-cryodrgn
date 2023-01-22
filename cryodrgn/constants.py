@@ -31,9 +31,9 @@ def getCryoDrgnEnvName(version):
 
 V1_0_0 = "1.0.0"
 V1_1_0 = "1.1.0"
-V2_0 = "2.0"
+V2_0_0 = "2.0.0"
 
-VERSIONS = [V1_0_0, V1_1_0, V2_0]
+VERSIONS = [V1_0_0, V1_1_0, V2_0_0]
 CRYODRGN_DEFAULT_VER_NUM = V1_1_0
 
 DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)

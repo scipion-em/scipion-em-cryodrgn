@@ -50,7 +50,7 @@ class CryoDrgnProtAbinitio(ProtProcessParticles):
 
     @classmethod
     def isDisabled(cls):
-        return not Plugin.versionGE(V2_0)
+        return not Plugin.versionGE(V2_0_0)
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
