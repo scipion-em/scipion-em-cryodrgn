@@ -31,7 +31,7 @@ import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
-from pwem.constants import ALIGN_PROJ
+from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles
 
 from cryodrgn import Plugin
@@ -126,9 +126,10 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         imgSet = self.inputParticles.get()
         # Create links to binary files and write the relion .star file
+        alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
         convert.writeSetOfParticles(
             imgSet, self._getFileName('input_parts'),
-            outputDir=self._getExtraPath(), alignType=ALIGN_PROJ)
+            outputDir=self._getExtraPath(), alignType=alignType)
 
     def runDownSampleStep(self):
         self._runProgram('preprocess', self._getPreprocessArgs())
