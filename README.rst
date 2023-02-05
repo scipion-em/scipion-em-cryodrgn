@@ -41,7 +41,7 @@ b) Developer's version
 
     .. code-block::
 
-        git clone https://github.com/scipion-em/scipion-em-cryodrgn.git
+        git clone -b devel https://github.com/scipion-em/scipion-em-cryodrgn.git
 
    * install
 
@@ -74,7 +74,7 @@ To check the installation, simply run the following Scipion test:
 Supported versions
 ------------------
 
-0.3.4, 0.3.5, 1.0.0, 1.1.0
+1.0.0, 1.1.0
 
 Protocols
 ----------
@@ -85,5 +85,6 @@ Protocols
 References
 -----------
 
-1. CryoDRGN: Reconstruction of heterogeneous cryo-EM structures using neural networks. Ellen D. Zhong, Tristan Bepler, Bonnie Berger, Joseph H. Davis. Nature Methods 18(2), 2021, 176-182. DOI 10.1038/s41592-020-01049-4
-2. Reconstructing continuous distributions of 3D protein structure from cryo-EM images. Ellen D. Zhong, Tristan Bepler, Joseph H. Davis, Bonnie Berger. ICLR 2020, https://arxiv.org/abs/1909.05215
+1. Uncovering structural ensembles from single particle cryo-EM data using cryoDRGN. Laurel Kinman, Barrett Powell, Ellen Zhong, Bonnie Berger, Joey Davis. https://www.biorxiv.org/content/10.1101/2022.08.09.503342v1
+2. CryoDRGN: Reconstruction of heterogeneous cryo-EM structures using neural networks. Ellen D. Zhong, Tristan Bepler, Bonnie Berger, Joseph H. Davis. Nature Methods 18(2), 2021, 176-182. DOI 10.1038/s41592-020-01049-4
+3. Reconstructing continuous distributions of 3D protein structure from cryo-EM images. Ellen D. Zhong, Tristan Bepler, Joseph H. Davis, Bonnie Berger. ICLR 2020, https://arxiv.org/abs/1909.05215

@@ -1,3 +1,10 @@
+3.7:
+    - drop support for v<1.0.0
+    - remove emtable requirement
+    - update citations
+    - update the installer
+    - updated viewer, removed iter selection since it is done in the protocol
+    - training protocol now generates output particles and volumes (with _cryodrgnZValues column)
 3.6.1: fix error when no downsampling was done, preprocess step cannot be skipped
 3.6:
     - add possible outputs class
