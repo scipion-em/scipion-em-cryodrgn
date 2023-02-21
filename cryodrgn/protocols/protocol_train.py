@@ -328,7 +328,10 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             vector = pwobj.CsvList()
             # We assume that each row "i" of z_values corresponds to each
             # volumes with ID "i"
-            vector._convertValue(zValues[volId])
+            volZValues = zValues[volId]
+            if not isinstance(volZValues, list):  # Case when dim=1
+                volZValues = [volZValues]
+            vector._convertValue(volZValues)
             # Creating a new column in the volumes with the z_value
             setattr(vol, Z_VALUES, vector)
             if updateItemCallback:
