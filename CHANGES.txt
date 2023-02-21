@@ -1,4 +1,4 @@
-3.7.1:
+3.8:
      * fixing a bug related to zvalues and particle IDs:
         - when the particle set is created from a subset and the ids of the set
           are not consecutive, cryodrgn fails.
