@@ -275,7 +275,7 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         """
         zEpochFile = self.getEpochZFile(self._epoch)
         with open(zEpochFile, 'rb') as f:
-            zValues = pickle.load(f)
+            zValues = iter(pickle.load(f))
         return zValues
 
     def _createParticleSet(self):
@@ -285,21 +285,21 @@ class CryoDrgnProtTrain(ProtProcessParticles):
         """
         cryoDRGParticles = self.inputParticles.get()
         ImgSet = self.getProject().getProtocol(cryoDRGParticles.getObjParentId()).inputParticles.get()
+        zValues = self._getParticlesZvalues()
         outImgSet = self._createSetOfParticles()
         outImgSet.copyInfo(ImgSet)
-        outImgSet.copyItems(ImgSet, updateItemCallback=self._setZValues)
-
+        outImgSet.copyItems(ImgSet, updateItemCallback=self._setZValues,
+                            itemDataIterator=zValues)
         setattr(outImgSet, WEIGHTS, pwobj.String(self._getFileName('weights')))
         setattr(outImgSet, CONFIG, pwobj.String(self._getFileName('config')))
 
         return outImgSet
 
     def _setZValues(self, item, row=None):
-        zValues = self._getParticlesZvalues()
         vector = pwobj.CsvList()
         # We assume that each row "i" of z_values corresponds to each
         # particle with ID "i"
-        vector._convertValue(list(zValues[item.getObjId()-1]))
+        vector._convertValue(list(row))
         setattr(item, Z_VALUES, vector)
 
     def _getVolumeZvalues(self, zValueFile):
@@ -331,7 +331,10 @@ class CryoDrgnProtTrain(ProtProcessParticles):
             vector = pwobj.CsvList()
             # We assume that each row "i" of z_values corresponds to each
             # volumes with ID "i"
-            vector._convertValue(zValues[volId])
+            volZValues = zValues[volId]
+            if not isinstance(volZValues, list):  # Case when dim=1
+                volZValues = [volZValues]
+            vector._convertValue(volZValues)
             # Creating a new column in the volumes with the z_value
             setattr(vol, Z_VALUES, vector)
             if updateItemCallback:

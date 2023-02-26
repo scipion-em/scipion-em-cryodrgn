@@ -38,7 +38,7 @@ _logo = "cryodrgn_logo.png"
 
 
 class Plugin(pwem.Plugin):
-    _url = "https://zhonge.github.io/cryodrgn/"
+    _url = "https://github.com/scipion-em/scipion-em-cryodrgn"
     _supportedVersions = VERSIONS
 
     @classmethod
