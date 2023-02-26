@@ -32,13 +32,13 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.7'
+__version__ = '3.8'
 _references = ['Zhong2020', 'Zhong2021', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
 
 class Plugin(pwem.Plugin):
-    _url = "https://zhonge.github.io/cryodrgn/"
+    _url = "https://github.com/scipion-em/scipion-em-cryodrgn"
     _supportedVersions = VERSIONS
 
     @classmethod
