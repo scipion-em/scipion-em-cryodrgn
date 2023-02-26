@@ -140,7 +140,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         except Exception as e:
             self.showError(str(e))
 
-    def _getVolumeNames(self):
+    def _getVolumes(self):
         """ Returns a list of volume names for chimerax. """
         prot = self.protocol
         vols = []
@@ -174,7 +174,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         cmdFile = prot._getExtraPath('chimera_volumes.cxc')
 
         with open(cmdFile, 'w+') as f:
-            for vol in self._getVolumeNames():
+            for vol in self._getVolumes():
                 localVol = os.path.relpath(vol, extra)
                 if os.path.exists(vol):
                     f.write("open %s\n" % localVol)
@@ -186,7 +186,7 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _showVolumeSlices(self):
         """ Open a sqlite with all volumes selected for visualization. """
-        path = self.protocol._getPath('volumes.sqlite')
+        path = self.protocol._getExtraPath('volumes.sqlite')
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
     def _showPlot(self, fn, epoch):
