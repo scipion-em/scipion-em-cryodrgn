@@ -84,7 +84,7 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getCryoDrgnEnvName(version)
         FLAG = f"cryodrgn_{version}_installed"
 
-        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.7",
+        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.6",
                                              pattern="cuda")
         toolkit = "%s.%s" % (cudaVersion.major, cudaVersion.minor)
 
@@ -102,12 +102,12 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
 
-        branch = (V2_0_0 + "-beta") if version == V2_0_0 else version  # remove once 2.0.0 is released
-
+        branch = (V2_1_0 + "-beta") if version == V2_1_0 else version  #TODO: remove beta suffix
+        url = "https://github.com/zhonge/cryodrgn.git"
         gitCmds = [
             'cd .. &&',
-            f'git clone https://github.com/zhonge/cryodrgn.git cryodrgn-{version} &&',
-            f'cd cryodrgn-{version} && git checkout {branch};'
+            f'git clone -b {branch} {url} cryodrgn-{version} &&',
+            f'cd cryodrgn-{version};'
         ]
         gitCmds.extend(installCmds)
         cryodrgnCmds = [(" ".join(gitCmds), FLAG)]

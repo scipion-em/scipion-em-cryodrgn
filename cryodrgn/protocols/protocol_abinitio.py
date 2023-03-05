@@ -43,7 +43,7 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
 
     @classmethod
     def isDisabled(cls):
-        return not Plugin.versionGE(V2_0_0)
+        return not Plugin.versionGE(V2_1_0)
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):

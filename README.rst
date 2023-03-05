@@ -61,7 +61,7 @@ python with conda ones. One example of this could can be seen below but
 depending on your conda version and shell you will need something different:
 CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
-*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-2.0.0):
+*CRYODRGN_ENV_ACTIVATION* (default = conda activate cryodrgn-2.1.0):
 Command to activate the cryoDRGN environment.
 
 
@@ -74,7 +74,7 @@ To check the installation, simply run the following Scipion test:
 Supported versions
 ------------------
 
-1.0.0, 1.1.0, 2.0.0-beta
+1.0.0, 1.1.0, 2.1.0-beta
 
 Protocols
 ----------
