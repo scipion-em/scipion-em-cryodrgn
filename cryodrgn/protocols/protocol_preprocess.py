@@ -31,7 +31,7 @@ import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
-from pwem.constants import ALIGN_PROJ
+from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles
 
 from cryodrgn import Plugin
@@ -46,8 +46,6 @@ class outputs(Enum):
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
     """ Protocol to downsample a particle stack and prepare alignment/CTF parameters.
-
-    Find more information at https://github.com/zhonge/cryodrgn
     """
     _label = 'preprocess'
     _devStatus = PROD
@@ -76,7 +74,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         form.addSection(label='Input')
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass='SetOfParticles',
-                      pointerCondition='hasAlignmentProj',
+                      pointerCondition='hasCTF',
                       label="Input particles", important=True,
                       help='Select a set of particles from a consensus C1 '
                            '3D refinement.')
@@ -91,9 +89,11 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       help='New box size in pixels, must be even.')
 
         form.addParam('doWindow', params.BooleanParam, default=True,
+                      expertLevel=params.LEVEL_ADVANCED,
                       label="Apply circular mask?")
 
         form.addParam('winSize', params.FloatParam, default=0.85,
+                      expertLevel=params.LEVEL_ADVANCED,
                       condition='doWindow',
                       label="Window size",
                       help="Circular windowing mask inner radius")
@@ -126,20 +126,23 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         imgSet = self.inputParticles.get()
         # Create links to binary files and write the relion .star file
+        alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
         convert.writeSetOfParticles(
             imgSet, self._getFileName('input_parts'),
-            outputDir=self._getExtraPath(), alignType=ALIGN_PROJ)
+            outputDir=self._getExtraPath(), alignType=alignType)
 
     def runDownSampleStep(self):
         self._runProgram('preprocess', self._getPreprocessArgs())
 
     def runParseMdStep(self):
-        self._runProgram('parse_pose_star', self._getParsePosesArgs())
+        if self._inputHasAlign():
+            self._runProgram('parse_pose_star', self._getParsePosesArgs())
         self._runProgram('parse_ctf_star', self._getParseCtfArgs())
 
     def createOutputStep(self):
+        poses = self._getFileName('output_poses') if self._inputHasAlign() else None
         output = CryoDrgnParticles(filename=self._getFileName('output_txt'),
-                                   poses=self._getFileName('output_poses'),
+                                   poses=poses,
                                    ctfs=self._getFileName('output_ctfs'),
                                    dim=self._getBoxSize() + 1,
                                    samplingRate=self._getSamplingRate())
@@ -154,7 +157,8 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         if not self.isFinished():
             summary.append("Output not ready")
         else:
-            summary.append("Created poses and ctf files for cryoDRGN.")
+            poses = "poses and" if self._inputHasAlign() else ""
+            summary.append(f"Created {poses} ctf files for cryoDRGN.")
 
         return summary
 
@@ -162,13 +166,28 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         errors = []
 
         particles = self._getInputParticles()
-        if not particles.hasCTF():
-            errors.append("The input particles have no CTF info!")
 
         if self.doScale and self.scaleSize > particles.getXDim():
             errors.append("You cannot upscale particles!")
 
+        if self._getBoxSize() % 2 != 0:
+            errors.append("Box size must be even!")
+
         return errors
+
+    def _warnings(self):
+        warnings = []
+
+        if not self._inputHasAlign():
+            warnings.append("Input particles have no alignment, you will only "
+                            "be able to use the output for ab initio training!")
+
+        if self._getBoxSize() % 8 != 0:
+            warnings.append("CryoDRGN mixed-precision (AMP) training will "
+                            "require box size divisible by 8. Alternatively, "
+                            "you will have to provide --no-amp option.")
+
+        return warnings
 
     # --------------------------- UTILS functions -----------------------------
     def _getPreprocessArgs(self):
@@ -218,6 +237,9 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
     def _getScaleFactor(self, inputSet):
         return inputSet.getXDim() / self._getBoxSize()
+
+    def _inputHasAlign(self):
+        return self._getInputParticles().hasAlignmentProj()
 
     def _runProgram(self, program, args):
         self.runJob(Plugin.getProgram(program), ' '.join(args))

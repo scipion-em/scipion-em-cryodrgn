@@ -17,7 +17,8 @@ def generateVolumes(zValues, weights, config, outdir, apix=1, flip=False,
            env=Plugin.getEnviron())
 
 
-def _getEvalVolArgs(zvalues, weights, config, outdir, apix, flip, downsample, invert):
+def _getEvalVolArgs(zvalues, weights, config, outdir, apix,
+                    flip, downsample, invert):
     if not os.path.exists(outdir):
         os.mkdir(outdir)
 
