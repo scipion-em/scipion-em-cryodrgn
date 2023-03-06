@@ -26,9 +26,18 @@
 # **************************************************************************
 """
 
+@article{Zhong2021b,
+  author    = {Zhong, Ellen D. and Lerer, Adam and Davis, Joseph H. and Berger, Bonnie},
+  title     = {CryoDRGN2: Ab Initio Neural Reconstruction of 3D Protein Structures From Real Cryo-EM Images},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  month     = {October},
+  year      = {2021},
+  pages     = {4066-4075},
+  url       = {https://openaccess.thecvf.com/content/ICCV2021/html/Zhong_CryoDRGN2_Ab_Initio_Neural_Reconstruction_of_3D_Protein_Structures_From_ICCV_2021_paper.html}
+}
+
 @article{Kinman2022,
-  doi = {10.1101/2022.08.09.503342},
-  url = {https://doi.org/10.1101/2022.08.09.503342},
+  doi = {https://dx.doi.org/10.1101/2022.08.09.503342},
   year = {2022},
   month = {aug},
   publisher = {Cold Spring Harbor Laboratory},
@@ -37,7 +46,7 @@
 }
 
 @article{Zhong2021,
- doi = {10.1038/s41592-020-01049-4},
+ doi = {https://dx.doi.org/10.1038/s41592-020-01049-4},
  year = 2021,
  month = {feb},
  volume = {18},

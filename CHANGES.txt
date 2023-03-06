@@ -1,7 +1,7 @@
-3.8:
-     * fixing a bug related to zvalues and particle IDs:
-        - when the particle set is created from a subset and the ids of the set
-          are not consecutive, cryodrgn fails.
+3.9: 
+    - add cryoDRGN2 protocol for ab initio reconstruction
+    - fix chimera viewer
+3.8: fixing a bug related to zvalues and particle IDs: when the particle set is created from a subset and the ids of the set are not consecutive, cryodrgn fails
 3.7:
     - drop support for v<1.0.0
     - remove emtable requirement

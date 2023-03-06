@@ -30,7 +30,7 @@ from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 from pwem.protocols import ProtImportParticles
 
-from ..protocols import CryoDrgnProtPreprocess, CryoDrgnProtTrain
+from ..protocols import *
 
 
 class TestCryoDrgn(BaseTest):
@@ -79,6 +79,13 @@ class TestCryoDrgn(BaseTest):
 
         self.assertTrue(filename.endswith('.txt'))
 
+    def checkTrainingOutput(self, trainingProt):
+        output = getattr(trainingProt, 'Particles', None)
+        self.assertIsNotNone(output)
+
+        output2 = getattr(trainingProt, 'Volumes', None)
+        self.assertIsNotNone(output2)
+
     def testPreprocess(self):
         parts = self.protImport.outputParticles
 
@@ -91,11 +98,16 @@ class TestCryoDrgn(BaseTest):
 
     def testTraining(self):
         parts = self.protImport.outputParticles
-
         preprocess = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
 
         print(magentaStr("\n==> Testing cryoDRGN - training:"))
-
         protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3, zDim=2)
         protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
         self.launchProtocol(protTrain)
+        self.checkTrainingOutput(protTrain)
+
+        print(magentaStr("\n==> Testing cryoDRGN - ab initio:"))
+        protAbinitio = self.newProtocol(CryoDrgnProtAbinitio, numEpochs=2, zDim=2)
+        protAbinitio.inputParticles.set(preprocess.outputCryoDrgnParticles)
+        self.launchProtocol(protAbinitio)
+        self.checkTrainingOutput(protAbinitio)
