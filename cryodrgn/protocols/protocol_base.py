@@ -32,17 +32,19 @@ import numpy as np
 import re
 from glob import glob
 
-import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 from pwem.protocols import ProtProcessParticles
-import pwem.objects as emobj
+
+from flexutils.objects import ParticleFlex, VolumeFlex
+from flexutils.protocols.protocol_base import ProtFlexBase
+import flexutils.constants as const
 
 from cryodrgn import Plugin
 from cryodrgn.constants import *
 
 
-class CryoDrgnProtBase(ProtProcessParticles):
+class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
     _label = None
 
     def _createFilenameTemplates(self):
@@ -152,10 +154,9 @@ class CryoDrgnProtBase(ProtProcessParticles):
         self._defineOutputs(Particles=outImgSet)
 
         # Creating a set of volumes with z_values
-        fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self.inputParticles.get().getSamplingRate()
         files, zValues = self._getVolumes()
-        setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
+        setOfVolumes = self._createVolumeSet(files, zValues, samplingRate)
         self._defineOutputs(Volumes=setOfVolumes)
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
@@ -232,22 +233,27 @@ class CryoDrgnProtBase(ProtProcessParticles):
         """
         cryoDRGParticles = self.inputParticles.get()
         ImgSet = self.getProject().getProtocol(cryoDRGParticles.getObjParentId()).inputParticles.get()
-        zValues = iter(self._getParticlesZvalues())
-        outImgSet = self._createSetOfParticles()
+        zValues = self._getParticlesZvalues()
+        outImgSet = self._createSetOfParticlesFlex(progName=const.CRYODRGN)
         outImgSet.copyInfo(ImgSet)
-        outImgSet.copyItems(ImgSet, updateItemCallback=self._setZValues,
-                            itemDataIterator=zValues)
-        setattr(outImgSet, WEIGHTS, pwobj.String(self._getFileName('weights')))
-        setattr(outImgSet, CONFIG, pwobj.String(self._getFileName('config')))
+
+        idx = 0
+        for img in ImgSet.iterItems():
+            outImg = ParticleFlex(progName=const.CRYODRGN)
+            outImg.copyInfo(img)
+
+            # We assume that each row "i" of z_values corresponds to each
+            # particle with ID "i"
+            outImg.setZFlex(zValues[idx])
+
+            outImgSet.append(outImg)
+
+            idx += 1
+
+        setattr(outImgSet.getFlexInfo(), WEIGHTS, pwobj.String(self._getFileName('weights')))
+        setattr(outImgSet.getFlexInfo(), CONFIG, pwobj.String(self._getFileName('config')))
 
         return outImgSet
-
-    def _setZValues(self, item, row=None):
-        vector = pwobj.CsvList()
-        # We assume that each row "i" of z_values corresponds to each
-        # particle with ID "i"
-        vector._convertValue(list(row))
-        setattr(item, Z_VALUES, vector)
 
     def _getVolumeZvalues(self, zValueFile):
         """
@@ -256,7 +262,7 @@ class CryoDrgnProtBase(ProtProcessParticles):
         """
         return np.loadtxt(zValueFile, dtype=float).tolist()
 
-    def _createVolumeSet(self, files, zValues, path, samplingRate,
+    def _createVolumeSet(self, files, zValues, samplingRate,
                          updateItemCallback=None):
         """
         Create a set of volume with the associated z_values
@@ -266,8 +272,7 @@ class CryoDrgnProtBase(ProtProcessParticles):
         :param samplingRate: volumes sampling rate
         :return: a set of volumes
         """
-        pwutils.cleanPath(path)
-        volSet = emobj.SetOfVolumes(filename=path)
+        volSet = self._createSetOfVolumesFlex(progName=const.CRYODRGN)
         volSet.setSamplingRate(samplingRate)
         volId = 0
         if type(zValues[0]) is not list:
@@ -275,15 +280,12 @@ class CryoDrgnProtBase(ProtProcessParticles):
             zValues = [[i] for i in zValues]
 
         for volFn in files:
-            vol = emobj.Volume()
+            vol = VolumeFlex(progName=const.CRYODRGN)
             vol.setFileName(volFn)
-            vector = pwobj.CsvList()
             # We assume that each row "i" of z_values corresponds to each
             # volumes with ID "i"
             volZValues = zValues[volId]
-            vector._convertValue(volZValues)
-            # Creating a new column in the volumes with the z_value
-            setattr(vol, Z_VALUES, vector)
+            vol.setZFlex(volZValues)
             if updateItemCallback:
                 updateItemCallback(vol)
             volSet.append(vol)
