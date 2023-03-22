@@ -34,8 +34,8 @@ import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles
 
-from cryodrgn import Plugin
-from cryodrgn.objects import CryoDrgnParticles
+from .. import Plugin
+from ..objects import CryoDrgnParticles
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 

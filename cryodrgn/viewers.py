@@ -32,7 +32,7 @@ from pyworkflow.protocol.executor import StepExecutor
 from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
-from cryodrgn import Plugin
+from . import Plugin
 from .protocols import CryoDrgnProtTrain, CryoDrgnProtAbinitio
 from .constants import *
 
