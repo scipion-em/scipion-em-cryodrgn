@@ -38,8 +38,8 @@ import pyworkflow.object as pwobj
 from pwem.protocols import ProtProcessParticles
 import pwem.objects as emobj
 
-from cryodrgn import Plugin
-from cryodrgn.constants import *
+from .. import Plugin
+from ..constants import *
 
 
 class CryoDrgnProtBase(ProtProcessParticles):

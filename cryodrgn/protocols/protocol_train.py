@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import pyworkflow.utils as pwutils
+import pyworkflow.object as pwobj
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 
@@ -41,6 +42,7 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         CryoDrgnProtBase._defineParams(self, form)
+        form.getParam('numberOfThreads').default = pwobj.Integer(1)
 
     def _defineAdvancedParams(self, form):
         form.addSection(label='Advanced')

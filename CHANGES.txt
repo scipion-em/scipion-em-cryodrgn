@@ -1,4 +1,6 @@
-3.9: 
+3.9.1:
+    - use max-threads=1 for train_vae until it's fixed: https://github.com/zhonge/cryodrgn/issues/245
+3.9:
     - add cryoDRGN2 protocol for ab initio reconstruction
     - fix chimera viewer
 3.8: fixing a bug related to zvalues and particle IDs: when the particle set is created from a subset and the ids of the set are not consecutive, cryodrgn fails
