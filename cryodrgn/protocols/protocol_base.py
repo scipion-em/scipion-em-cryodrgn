@@ -40,8 +40,8 @@ from flexutils.objects import ParticleFlex, VolumeFlex
 from flexutils.protocols.protocol_base import ProtFlexBase
 import flexutils.constants as const
 
-from cryodrgn import Plugin
-from cryodrgn.constants import *
+from .. import Plugin
+from ..constants import *
 
 
 class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):

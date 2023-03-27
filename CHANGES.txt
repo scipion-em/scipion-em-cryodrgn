@@ -1,5 +1,8 @@
+3.9.2:
+    - add cryoDRGN2 protocol for ab initio reconstruction
+    - fix chimera viewer
 3.9.1:
-    - Compatibility with new Flexutils data model
+    - use max-threads=1 for train_vae until it's fixed: https://github.com/zhonge/cryodrgn/issues/245
 3.9:
     - add cryoDRGN2 protocol for ab initio reconstruction
     - fix chimera viewer
