@@ -30,7 +30,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 
 from .. import Plugin
-from ..constants import *
+from ..constants import V2_1_0, AB_INITIO_HOMO, AB_INITIO_HETERO
 from .protocol_base import CryoDrgnProtBase
 
 
