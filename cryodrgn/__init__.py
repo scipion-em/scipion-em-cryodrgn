@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.9.1'
+__version__ = '3.10'
 _references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
@@ -102,7 +102,7 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
 
-        branch = (V2_1_0 + "-beta") if version == V2_1_0 else version  #TODO: remove beta suffix
+        branch = (V2_1_0 + "-beta") if version == V2_1_0 else version
         url = "https://github.com/zhonge/cryodrgn.git"
         gitCmds = [
             'cd .. &&',

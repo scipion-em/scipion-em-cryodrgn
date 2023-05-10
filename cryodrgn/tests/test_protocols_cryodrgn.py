@@ -30,7 +30,8 @@ from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 from pwem.protocols import ProtImportParticles
 
-from ..protocols import *
+from ..protocols import (CryoDrgnProtPreprocess, CryoDrgnProtTrain,
+                         CryoDrgnProtAbinitio)
 
 
 class TestCryoDrgn(BaseTest):
