@@ -1,6 +1,5 @@
-3.9.2:
-    - add cryoDRGN2 protocol for ab initio reconstruction
-    - fix chimera viewer
+3.10:
+    - v2.3.0 added
 3.9.1:
     - use max-threads=1 for train_vae until it's fixed: https://github.com/zhonge/cryodrgn/issues/245
 3.9:

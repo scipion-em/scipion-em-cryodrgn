@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
-# * Authors:     Yunior C. Fonseca Reyna (cfonseca@cnb.csic.es) [2]
+# *              Yunior C. Fonseca Reyna (cfonseca@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -41,7 +41,7 @@ from flexutils.protocols.protocol_base import ProtFlexBase
 import flexutils.constants as const
 
 from .. import Plugin
-from ..constants import *
+from ..constants import EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, Z_VALUES
 
 
 class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
