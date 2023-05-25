@@ -301,9 +301,10 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
 
     def getLastEpoch(self):
         """ Return the last iteration number. """
+        natsort = lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split('(\d+)', s)]
         epoch = None
-        self._epochRegex = re.compile(r'z.(\d).pkl')
-        files = sorted(glob(self.getEpochZFile(0).replace('0', '*')))
+        self._epochRegex = re.compile(r'z.(\d+).pkl')
+        files = sorted(glob(self.getEpochZFile(0).replace('0', '*')), key=natsort)
         if files:
             f = files[-1]
             s = self._epochRegex.search(f)
