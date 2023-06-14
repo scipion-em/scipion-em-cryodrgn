@@ -31,6 +31,7 @@ import pickle
 import numpy as np
 import re
 from glob import glob
+from packaging import version
 
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
@@ -41,7 +42,7 @@ from flexutils.protocols.protocol_base import ProtFlexBase
 import flexutils.constants as const
 
 from .. import Plugin
-from ..constants import EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, Z_VALUES
+from ..constants import EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, Z_VALUES, V2_3_0
 
 
 class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
@@ -52,13 +53,16 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         def out(*p):
             return os.path.join(self.getOutputDir(f'analyze.{self._epoch}'), *p)
 
+        cryodrgn_version = version.parse(Plugin.getActiveVersion())
+
         myDict = {
             'output_vol': out('vol_%(id)03d.mrc'),
             'output_volN': out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
             'z_values': out('z_values.txt'),
             'z_valuesN': out('kmeans%(ksamples)d/z_values.txt'),
             'weights': self.getOutputDir(f'weights.{self._epoch}.pkl'),
-            'config': self.getOutputDir('config.pkl')
+            'config': self.getOutputDir('config.pkl') if cryodrgn_version < version.parse(V2_3_0)
+                      else self.getOutputDir('config.yaml')
         }
         self._updateFilenamesDict(myDict)
 
