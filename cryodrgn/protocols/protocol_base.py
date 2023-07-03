@@ -31,6 +31,7 @@ import pickle
 import numpy as np
 import re
 from glob import glob
+from enum import Enum
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
@@ -42,8 +43,14 @@ from .. import Plugin
 from ..constants import EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, Z_VALUES
 
 
+class outputs(Enum):
+    Particles = emobj.SetOfParticles
+    Volumes = emobj.SetOfVolumes
+
+
 class CryoDrgnProtBase(ProtProcessParticles):
     _label = None
+    _possibleOutputs = outputs
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
@@ -149,14 +156,14 @@ class CryoDrgnProtBase(ProtProcessParticles):
         """ Create the protocol outputs. """
         # Creating a set of particles with z_values
         outImgSet = self._createParticleSet()
-        self._defineOutputs(Particles=outImgSet)
+        self._defineOutputs(**{outputs.Particles.name: outImgSet})
 
         # Creating a set of volumes with z_values
         fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self.inputParticles.get().getSamplingRate()
         files, zValues = self._getVolumes()
         setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
-        self._defineOutputs(Volumes=setOfVolumes)
+        self._defineOutputs(**{outputs.Volumes.name: setOfVolumes})
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
@@ -230,12 +237,11 @@ class CryoDrgnProtBase(ProtProcessParticles):
         Create a set of particles with the associated z_values
         :return: a set of particles
         """
-        cryoDRGParticles = self.inputParticles.get()
-        ImgSet = self.getProject().getProtocol(cryoDRGParticles.getObjParentId()).inputParticles.get()
+        inputImgSet = self.inputParticles.ptcls.getExtended()
         zValues = iter(self._getParticlesZvalues())
         outImgSet = self._createSetOfParticles()
-        outImgSet.copyInfo(ImgSet)
-        outImgSet.copyItems(ImgSet, updateItemCallback=self._setZValues,
+        outImgSet.copyInfo(inputImgSet)
+        outImgSet.copyItems(inputImgSet, updateItemCallback=self._setZValues,
                             itemDataIterator=zValues)
         setattr(outImgSet, WEIGHTS, pwobj.String(self._getFileName('weights')))
         setattr(outImgSet, CONFIG, pwobj.String(self._getFileName('config')))
