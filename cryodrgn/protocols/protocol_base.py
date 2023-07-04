@@ -237,7 +237,7 @@ class CryoDrgnProtBase(ProtProcessParticles):
         Create a set of particles with the associated z_values
         :return: a set of particles
         """
-        inputImgSet = self.inputParticles.ptcls.getExtended()
+        inputImgSet = self.inputParticles.get().ptcls.get()
         zValues = iter(self._getParticlesZvalues())
         outImgSet = self._createSetOfParticles()
         outImgSet.copyInfo(inputImgSet)
