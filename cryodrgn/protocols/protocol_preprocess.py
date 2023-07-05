@@ -146,6 +146,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                                    ctfs=self._getFileName('output_ctfs'),
                                    dim=self._getBoxSize() + 1,
                                    samplingRate=self._getSamplingRate())
+        output.ptcls = self.inputParticles.clone()
 
         self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
         self._defineSourceRelation(self.inputParticles, output)
