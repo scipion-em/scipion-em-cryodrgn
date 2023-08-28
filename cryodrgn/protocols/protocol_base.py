@@ -166,10 +166,9 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         self._defineOutputs(**{outputs.Particles.name: outImgSet})
 
         # Creating a set of volumes with z_values
-        fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self.inputParticles.get().getSamplingRate()
         files, zValues = self._getVolumes()
-        setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
+        setOfVolumes = self._createVolumeSet(files, zValues, samplingRate)
         self._defineOutputs(**{outputs.Volumes.name: setOfVolumes})
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
@@ -244,14 +243,13 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         Create a set of particles with the associated z_values
         :return: a set of particles
         """
-        cryoDRGParticles = self.inputParticles.get()
-        ImgSet = self.getProject().getProtocol(cryoDRGParticles.getObjParentId()).inputParticles.get()
+        cryoDRGNParticles = self.inputParticles.get().ptcls.get()
         zValues = self._getParticlesZvalues()
         outImgSet = self._createSetOfParticlesFlex(progName=const.CRYODRGN)
-        outImgSet.copyInfo(ImgSet)
+        outImgSet.copyInfo(cryoDRGNParticles)
 
         idx = 0
-        for img in ImgSet.iterItems():
+        for img in cryoDRGNParticles.iterItems():
             outImg = ParticleFlex(progName=const.CRYODRGN)
             outImg.copyInfo(img)
 
