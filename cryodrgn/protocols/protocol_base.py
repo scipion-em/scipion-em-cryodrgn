@@ -32,10 +32,12 @@ import numpy as np
 import re
 from glob import glob
 from packaging import version
+from enum import Enum
 
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 from pwem.protocols import ProtProcessParticles
+import pwem.objects as emobj
 
 from flexutils.objects import ParticleFlex, VolumeFlex
 from flexutils.protocols.protocol_base import ProtFlexBase
@@ -45,8 +47,14 @@ from .. import Plugin
 from ..constants import EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, Z_VALUES, V2_3_0
 
 
+class outputs(Enum):
+    Particles = emobj.SetOfParticles
+    Volumes = emobj.SetOfVolumes
+
+
 class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
     _label = None
+    _possibleOutputs = outputs
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
@@ -155,13 +163,14 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         """ Create the protocol outputs. """
         # Creating a set of particles with z_values
         outImgSet = self._createParticleSet()
-        self._defineOutputs(Particles=outImgSet)
+        self._defineOutputs(**{outputs.Particles.name: outImgSet})
 
         # Creating a set of volumes with z_values
+        fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self.inputParticles.get().getSamplingRate()
         files, zValues = self._getVolumes()
-        setOfVolumes = self._createVolumeSet(files, zValues, samplingRate)
-        self._defineOutputs(Volumes=setOfVolumes)
+        setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
+        self._defineOutputs(**{outputs.Volumes.name: setOfVolumes})
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
