@@ -247,6 +247,7 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         zValues = self._getParticlesZvalues()
         outImgSet = self._createSetOfParticlesFlex(progName=const.CRYODRGN)
         outImgSet.copyInfo(cryoDRGNParticles)
+        outImgSet.setHasCTF(cryoDRGNParticles.hasCTF())
 
         idx = 0
         for img in cryoDRGNParticles.iterItems():
