@@ -93,7 +93,7 @@ class Plugin(pwem.Plugin):
             cls.getCondaActivationCmd(),
             f'conda create -y -n {ENV_NAME} python=3.9 &&',
             f'conda activate {ENV_NAME} &&',
-            f'conda install -y pytorch-gpu cudatoolkit={toolkit} -c pytorch -c conda-forge &&',
+            f'conda install -y pytorch-gpu cudatoolkit={toolkit} -c conda-forge &&',
             'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
         ]

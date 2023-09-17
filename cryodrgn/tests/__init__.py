@@ -1,12 +1,12 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] SciLifeLab, Stockholm University
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 3 of the License, or
+# * the Free Software Foundation; either version 2 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,4 +24,14 @@
 # *
 # **************************************************************************
 
+from pyworkflow.tests import DataSet
+from pyworkflow.utils import weakImport
+
 from .test_protocols_cryodrgn import TestCryoDrgn
+with weakImport('tomo'):
+    from .test_workflow_tomo import TestTomoDrgn
+
+
+DataSet(name='tomo-em', folder='tomo-em',
+        files={'empiar-ts': 'EMPIAR-10164/ts',
+               'empiar-coords': 'EMPIAR-10164/ts/coords_5tomos.star'})

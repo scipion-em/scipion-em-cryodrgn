@@ -27,7 +27,11 @@
 # **************************************************************************
 
 import pyworkflow.object as pwobj
-from pwem.objects import EMObject
+from pyworkflow.utils import weakImport
+from pwem.objects import EMObject, SetOfImages, Transform, CTFModel
+
+with weakImport("tomo"):
+    from tomo.objects import TiltImage, TomoAcquisition
 
 
 class CryoDrgnParticles(EMObject):
@@ -52,3 +56,99 @@ class CryoDrgnParticles(EMObject):
 
     def getXDim(self):
         return self.dim.get()
+
+
+class TiltParticle1(TiltImage):
+    """ One tilted particle image from a tilt series. """
+
+    def __init__(self, **kwargs):
+        TiltImage.__init__(self, **kwargs)
+        self._acquisition = TomoAcquisition()
+        self._tsId = pwobj.String()
+        self._volId = pwobj.Integer()
+        self._coordinate = None  # 2D coord from a tilt series
+        self._transform = None
+        self._ctfModel = None
+
+    def getTsId(self):
+        return self._tsId.get()
+
+    def setTsId(self, value):
+        self._tsId.set(value)
+
+    def getVolId(self):
+        return self._volId.get()
+
+    def setVolId(self, value):
+        self._volId.set(value)
+
+    def hasCoordinate(self):
+        return self._coordinate is not None
+
+    def setCoordinate(self, coordinate):
+        self._coordinate = coordinate
+
+    def getCoordinate(self):
+        return self._coordinate
+
+    def hasTransform(self):
+        return self._transform is not None
+
+    def getTransform(self) -> Transform:
+        return self._transform
+
+    def setTransform(self, newTransform):
+        self._transform = newTransform
+
+    def hasCTF(self):
+        return self._ctfModel is not None
+
+    def getCTF(self) -> CTFModel:
+        """ Return the CTF model """
+        return self._ctfModel
+
+    def setCTF(self, newCTF):
+        self._ctfModel = newCTF
+
+    def __str__(self):
+        dims = self.getDim()
+        dimstr = dims or [None, None]
+        return ('TiltParticle (%s x %s, %0.2f Å/px, '
+                'tiltAngle: %0.1f, tsId: %s, volId: %d)'
+                % (dimstr[0], dimstr[1], self._samplingRate.get(),
+                   self.getTiltAngle(), self.getTsId(), self.getVolId()))
+
+
+class SetOfTiltSeriesParticles(SetOfImages):
+    """ Equivalent to a set of subtomograms, but in 2D. """
+    ITEM_TYPE = TiltParticle1
+
+    def __init__(self, **kwargs):
+        SetOfImages.__init__(self, **kwargs)
+        self.counter_ts = None
+        self.counter_subtomo = None
+
+    def getTSIds(self):
+        """ Returns all TS_IDs involved in the set."""
+        attr = "_tsId"
+        tsIds = self.aggregate(["MAX"], attr, [attr])
+        tsIds = [d[attr] for d in tsIds]
+        return tsIds
+
+    def getVolIds(self):
+        """ Returns all volIds involved in the set."""
+        attr = "_volId"
+        volIds = self.aggregate(["MAX"], attr, [attr])
+        volIds = [d[attr] for d in volIds]
+        return volIds
+
+    def __str__(self):
+        if self.counter_ts is None:
+            self.counter_ts = len(self.getTSIds())
+        if self.counter_subtomo is None:
+            self.counter_subtomo = len(self.getVolIds())
+
+        return ('SetOfTiltSeriesParticles (%d items, %0.2f Å/px, '
+                'from %d tilt series, %d subtomos)'
+                % (self.getSize(), self._samplingRate.get(),
+                   self.counter_ts, self.counter_subtomo))
