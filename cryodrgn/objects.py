@@ -41,6 +41,7 @@ class CryoDrgnParticles(EMObject):
         self.ctfs = pwobj.String(ctfs)
         self.samplingRate = pwobj.Float(samplingRate)
         self.dim = pwobj.Integer(dim)
+        self.ptcls = pwobj.Pointer()
 
     def __str__(self):
         return ('CryoDrgnParticles (%d x %d, %0.2f Å/px)'

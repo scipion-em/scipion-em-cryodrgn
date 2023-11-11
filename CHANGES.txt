@@ -1,3 +1,4 @@
+3.11: fix pointer to particles (with @pconesa)
 3.10:
     - v2.3.0 added
 3.9.1:
