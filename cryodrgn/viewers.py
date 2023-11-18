@@ -34,7 +34,8 @@ from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
 from . import Plugin
 from .protocols import CryoDrgnProtTrain, CryoDrgnProtAbinitio
-from .constants import *
+from .constants import (EPOCH_LAST, EPOCH_SELECTION,
+                        VOLUME_SLICES, VOLUME_CHIMERA)
 
 
 class CryoDrgnViewer(EmProtocolViewer):
