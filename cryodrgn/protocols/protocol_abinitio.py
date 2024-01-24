@@ -29,8 +29,7 @@ from pyworkflow.constants import NEW
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 
-from .. import Plugin
-from ..constants import V2_1_0, AB_INITIO_HOMO, AB_INITIO_HETERO
+from ..constants import AB_INITIO_HOMO, AB_INITIO_HETERO
 from .protocol_base import CryoDrgnProtBase
 
 
@@ -40,10 +39,6 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
     """
     _label = 'training ab initio'
     _devStatus = NEW
-
-    @classmethod
-    def isDisabled(cls):
-        return not Plugin.versionGE(V2_1_0)
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
