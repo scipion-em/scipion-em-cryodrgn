@@ -34,7 +34,7 @@ from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles
 from pwem.objects import SetOfParticles
 
-from .. import Plugin
+from cryodrgn import Plugin
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
@@ -68,7 +68,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       label='New box size (px)',
                       help='New box size in pixels, must be even.')
 
-        form.addParam('chunk', params.IntParam, default=50000,
+        form.addParam('chunk', params.IntParam, default=0,
                       label='Split in chunks',
                       help='Chunk size (in # of images) to split '
                            'particle stack when saving.')
@@ -89,6 +89,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
         convert.writeSetOfParticles(imgSet,
                                     self._getTmpPath('input_particles.star'),
+                                    outputDir=self._getTmpPath(),
                                     alignType=alignType)
 
     def runDownSampleStep(self):
@@ -148,6 +149,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         args = [
             self._getTmpPath('input_particles.star'),
             f"-o {self._getExtraPath('particles.%d.mrcs' % newBox)}",
+            f"--datadir {self._getTmpPath('input')}",
             f"-D {newBox}",
             f"--max-threads {self.numberOfThreads}"
         ]
