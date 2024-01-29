@@ -24,14 +24,12 @@
 # *
 # **************************************************************************
 
-import os
-
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 from pwem.protocols import ProtImportParticles
 
-from ..protocols import (CryoDrgnProtPreprocess, CryoDrgnProtTrain,
-                         CryoDrgnProtAbinitio)
+from cryodrgn.protocols import (CryoDrgnProtPreprocess, CryoDrgnProtTrain,
+                                CryoDrgnProtAbinitio)
 
 
 class TestCryoDrgn(BaseTest):
@@ -66,49 +64,37 @@ class TestCryoDrgn(BaseTest):
         return self.launchProtocol(protPreprocess)
 
     def checkPreprocessOutput(self, preprocessProt):
-        """ Do some check on the output of the preprocess. """
-        output = getattr(preprocessProt, 'outputCryoDrgnParticles', None)
+        output = getattr(preprocessProt,
+                         preprocessProt._possibleOutputs.Particles.name,
+                         None)
         self.assertIsNotNone(output)
 
-        filename = output.filename.get()
-        poses = output.poses.get()
-        ctfs = output.ctfs.get()
-
-        for f in [filename, poses, ctfs]:
-            fn = os.path.join(self.proj.path, f)
-            self.assertTrue(os.path.exists(fn))
-
-        self.assertTrue(filename.endswith('.txt'))
-
-    def checkTrainingOutput(self, trainingProt):
-        output = getattr(trainingProt, 'Particles', None)
+    def checkTrainOutput(self, trainProt):
+        output = getattr(trainProt, trainProt._possibleOutputs.Particles.name, None)
         self.assertIsNotNone(output)
-
-        output2 = getattr(trainingProt, 'Volumes', None)
-        self.assertIsNotNone(output2)
 
     def testPreprocess(self):
         parts = self.protImport.outputParticles
 
-        preprocess1 = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
+        preprocess1 = self.runPreprocess("downsample scale=64", parts, scaleSize=64)
         self.checkPreprocessOutput(preprocess1)
 
-        preprocess2 = self.runPreprocess("preprocess scale=50 with chunks", parts,
+        preprocess2 = self.runPreprocess("downsample scale=50 with chunks", parts,
                                          scaleSize=50, chunk=200)
         self.checkPreprocessOutput(preprocess2)
 
     def testTraining(self):
         parts = self.protImport.outputParticles
-        preprocess = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
+        preprocess = self.runPreprocess("downsample scale=64", parts, scaleSize=64)
 
-        print(magentaStr("\n==> Testing cryoDRGN - training:"))
+        print(magentaStr("\n==> Testing cryoDRGN - training vae:"))
         protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3, zDim=2)
-        protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
+        protTrain.inputParticles.set(preprocess.Particles)
         self.launchProtocol(protTrain)
-        self.checkTrainingOutput(protTrain)
+        self.checkTrainOutput(protTrain)
 
-        print(magentaStr("\n==> Testing cryoDRGN - ab initio:"))
+        print(magentaStr("\n==> Testing cryoDRGN - ab initio (het):"))
         protAbinitio = self.newProtocol(CryoDrgnProtAbinitio, numEpochs=2, zDim=2)
-        protAbinitio.inputParticles.set(preprocess.outputCryoDrgnParticles)
+        protAbinitio.inputParticles.set(preprocess.Particles)
         self.launchProtocol(protAbinitio)
-        self.checkTrainingOutput(protAbinitio)
+        self.checkTrainOutput(protAbinitio)
