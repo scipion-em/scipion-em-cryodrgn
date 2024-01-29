@@ -28,7 +28,7 @@ import pyworkflow.object as pwobj
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 
-from .protocol_base import CryoDrgnProtBase
+from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 
 class CryoDrgnProtTrain(CryoDrgnProtBase):
@@ -42,7 +42,7 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
         form.getParam('numberOfThreads').default = pwobj.Integer(1)
 
     def _defineAdvancedParams(self, form):
-        form.addSection(label='Advanced', condition='not doContinue')
+        form.addSection(label='Advanced')
         group = form.addGroup('Encoder', condition='not doContinue')
         group.addParam('qLayers', params.IntParam, default=3,
                        label='Number of hidden layers')

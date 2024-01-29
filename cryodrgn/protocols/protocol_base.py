@@ -161,7 +161,7 @@ class CryoDrgnProtBase(ProtProcessParticles):
                                     outputDir=self._getExtraPath(),
                                     alignType=alignType)
 
-        if self._inputHasAlign():
+        if self._inputHasAlign() and self.getClassName() != "CryoDrgnProtAbinitio":
             self._runProgram('parse_pose_star', self._getParsePosesArgs())
         self._runProgram('parse_ctf_star', self._getParseCtfArgs())
 
