@@ -1,6 +1,7 @@
 3.12:
     - v3.1.0 added, old versions removed
-    -
+    - refactor preprocess protocol to do only downsampling and/or chunking
+    - refactor train_vae protocol, remove analysis step and add ctf/poses parse step, add continue option
 3.11: fix pointer to particles (with @pconesa)
 3.10:
     - v2.3.0 added

@@ -108,7 +108,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                          itemDataIterator=itemIter,
                          updateItemCallback=self._updateLocation)
         self._defineOutputs(**{outputs.Particles.name: imgSet})
-        self._defineTransformRelation(inputSet, imgSet)
+        self._defineTransformRelation(self.inputParticles, imgSet)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):

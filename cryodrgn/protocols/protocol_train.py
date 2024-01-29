@@ -24,7 +24,6 @@
 # *
 # **************************************************************************
 
-import pyworkflow.utils as pwutils
 import pyworkflow.object as pwobj
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
@@ -33,9 +32,7 @@ from .protocol_base import CryoDrgnProtBase
 
 
 class CryoDrgnProtTrain(CryoDrgnProtBase):
-    """
-    Protocol to train cryoDRGN neural network.
-    """
+    """ Protocol to train cryoDRGN neural network. """
     _label = 'training VAE'
     _devStatus = PROD
 
@@ -45,14 +42,14 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
         form.getParam('numberOfThreads').default = pwobj.Integer(1)
 
     def _defineAdvancedParams(self, form):
-        form.addSection(label='Advanced')
-        group = form.addGroup('Encoder')
+        form.addSection(label='Advanced', condition='not doContinue')
+        group = form.addGroup('Encoder', condition='not doContinue')
         group.addParam('qLayers', params.IntParam, default=3,
                        label='Number of hidden layers')
         group.addParam('qDim', params.IntParam, default=1024,
                        label='Number of nodes in hidden layers')
 
-        group = form.addGroup('Decoder')
+        group = form.addGroup('Decoder', condition='not doContinue')
         group.addParam('pLayers', params.IntParam, default=3,
                        label='Number of hidden layers')
         group.addParam('pDim', params.IntParam, default=1024,
@@ -65,48 +62,52 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
-        # Create output folder
-        pwutils.cleanPath(self.getOutputDir())
-        pwutils.makePath(self.getOutputDir())
-
-        # Call cryoDRGN with the appropriate parameters
         self._runProgram('train_vae', self._getTrainingArgs())
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
-        summary = ["Training VAE for %d epochs." % self.numEpochs]
+        summary = [f"Training VAE for {self.numEpochs} epochs."]
 
         return summary
 
     def _validate(self):
-        errors = CryoDrgnProtBase._validateBase(self)
+        errors = super()._validate()
 
-        if self.inputParticles.get().poses is None:
-            errors.append("Input particles have no poses (alignment)!")
+        if not self._inputHasAlign():
+            errors.append("Input particles have no alignment information!")
 
         return errors
 
     # --------------------------- UTILS functions -----------------------------
     def _getTrainingArgs(self):
-        parts = self.inputParticles.get()
+        run = self.continueRun.get() if self.doContinue else self
 
         args = [
-            parts.filename.get(),
-            '--poses %s' % parts.poses,
-            '--ctf %s' % parts.ctfs,
-            '--zdim %d' % self.zDim,
-            '-o %s ' % self.getOutputDir(),
-            '-n %d' % self.numEpochs,
-            '--preprocessed',
-            '--max-threads %d ' % self.numberOfThreads,
-            '--enc-layers %d' % self.qLayers,
-            '--enc-dim %d' % self.qDim,
-            '--dec-layers %d' % self.pLayers,
-            '--dec-dim %d' % self.pDim
+            self._getFileName('input_parts'),
+            f"--poses {self._getFileName('input_poses')}",
+            f"--ctf {self._getFileName('input_ctfs')}",
+            "--load latest" if self.doContinue else "",
+            f"--zdim {run.zDim}",
+            f"-o {self.getOutputDir()}",
+            f"-n {self.numEpochs}",
+            f"--max-threads {self.numberOfThreads}",
+            f"--enc-layers {run.qLayers}",
+            f"--enc-dim {run.qDim}",
+            f"--dec-layers {run.pLayers}",
+            f"--dec-dim {run.pDim}"
         ]
+
+        if run.doWindow:
+            args.append(f"--window-r {run.winSize}")
+
+        if not run.doInvert:  # neg. stain only
+            args.append('--uninvert-data')
 
         if len(self.getGpuList()) > 1:
             args.append('--multigpu')
+
+        if self._getInputParticles().getXDim() % 8 != 0:
+            args.append("--no-amp")
 
         if self.extraParams.hasValue():
             args.append(self.extraParams.get())
