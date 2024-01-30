@@ -264,9 +264,6 @@ class CryoDrgnProtBase(ProtProcessParticles):
     def _canContinue(self):
         return self._getLastEpoch() is not None
 
-    def hasMultLatentVars(self):
-        return self.zDim > 1
-
     def _getInputParticles(self, pointer=False):
         if self.doContinue and self.continueRun.hasValue():
             input = self.continueRun.get().inputParticles

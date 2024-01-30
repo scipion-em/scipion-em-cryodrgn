@@ -69,7 +69,7 @@ Verifying
 ---------
 To check the installation, simply run the following Scipion test:
 
-``scipion test cryodrgn.tests.test_protocols_cryodrgn.TestCryoDrgn``
+``scipion test cryodrgn.tests.test_protocols_cryodrgn.TestWorkflowCryoDrgn``
 
 Supported versions
 ------------------
@@ -79,7 +79,8 @@ Supported versions
 Protocols
 ----------
 
-* preprocess
+* analyze results
+* preprocess particles
 * training VAE
 * training ab initio
 
