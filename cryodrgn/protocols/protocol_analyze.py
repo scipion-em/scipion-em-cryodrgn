@@ -36,7 +36,7 @@ import pyworkflow.object as pwobj
 from pwem.protocols import ProtAnalysis3D
 from pwem.objects import SetOfVolumes, Volume
 
-from cryodrgn.constants import EPOCH_LAST, EPOCH_SELECTION, Z_VALUES
+from cryodrgn.constants import EPOCH_LAST, EPOCH_SELECTION, Z_VALUES, AB_INITIO_HOMO
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 
@@ -87,8 +87,6 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
                       label="Epoch number")
 
         form.addSection(label='Latent space')
-        form.addParam('skipVol', params.BooleanParam, default=False,
-                      label="Skip generation of volumes")
         form.addParam('skipUmap', params.BooleanParam, default=False,
                       label="Skip running UMAP")
 
@@ -136,7 +134,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
     def createOutputStep(self):
         """ Create a set of volumes with z_values. """
         fn = self._getExtraPath('volumes.sqlite')
-        samplingRate = self._getSamplingRate()
+        samplingRate = self._getOutputSampling()
         files, zValues = self._getVolumes()
         setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
 
@@ -150,15 +148,39 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
         return summary
 
+    def _warnings(self):
+        warnings = []
+
+        if not self.hasMultLatentVars():
+            warnings.append("Input protocol has *zDim=1*, the following "
+                            "parameters will be ignored:\n"
+                            "\t- Number of principal components\n"
+                            "\t- Number of K-means samples to generate")
+
+        return warnings
+
     def _validate(self):
         errors = []
+        inputProt = self.inputProt.get()
+
+        # ab initio homo is not allowed
+        if inputProt.getClassName() == "CryoDrgnProtAbinitio":
+            run = inputProt.continueRun.get() if inputProt.doContinue else inputProt
+            if run.protType.get() == AB_INITIO_HOMO:
+                errors.append("Cannot analyze ab initio homogeneous run!")
 
         if self.inputEpoch == EPOCH_SELECTION:
-            self.inputProt.get()._createFilenameTemplates()
+            inputProt._createFilenameTemplates()
             ep = self.epochNum.get() - 1
             total = self._getLastEpoch()
             if ep > total:
                 errors.append(f"You can analyse only epochs 1-{total+1}")
+
+        if self.doDownsample:
+            origBox = inputProt._getInputParticles().getXDim()
+            newBox = self.boxSize.get()
+            if newBox > origBox:
+                errors.append("You cannot upscale volumes!")
 
         return errors
 
@@ -169,14 +191,13 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             f"{epoch}",
             f"-o {self.getOutputDir(f'analyze.{epoch}')}",
             f"--Apix {self._getSamplingRate()}",
-            "--skip-vol" if self.skipVol else "",
-            "--skip-umap" if self.skipVol else "",
+            f"--device {self.gpuList.get()}",
             f"-d {self.boxSize}" if self.doDownsample else "",
             "--flip" if self.doFlip else "",
             "--invert" if self.doInvert else "",
-            f"--pc {self.pc}",
-            f"--ksample {self.ksamples}",
-            f"--device {self.gpuList.get()}"
+            "--skip-umap" if self.skipUmap else "",
+            f"--ksample {self.ksamples}" if self.hasMultLatentVars() else "",
+            f"--pc {self.pc}" if self.hasMultLatentVars() else ""
         ]
 
         return args
@@ -256,6 +277,14 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     def _getSamplingRate(self):
         return self.inputProt.get()._getInputParticles().getSamplingRate()
+
+    def _getOutputSampling(self):
+        if self.doDownsample:
+            origBox = self.inputProt.get()._getInputParticles().getXDim()
+            newBox = self.boxSize.get()
+            return origBox/newBox * self._getSamplingRate()
+        else:
+            return self._getSamplingRate()
 
     def hasMultLatentVars(self):
         inputProt = self.inputProt.get()

@@ -49,23 +49,22 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
-        prot = self.protocol
-
-        def _out(f):
-            path = glob(prot.getOutputDir("analyze.*"))[0]
-            return os.path.join(path, f)
-
-        self._updateFilenamesDict({
-            'output_notebook': _out('cryoDRGN_viz.ipynb'),
-            'output_hist': _out('z_hist.png'),
-            'output_dist': _out('z.png'),
-            'output_umap': _out('umap.png'),
-            'output_umaphex': _out('umap_hexbin.png'),
-            'output_pca': _out('z_pca.png'),
-            'output_pcahex': _out('z_pca_hexbin.png'),
-            'output_vol': _out('vol_%(id)03d.mrc'),
-            'output_volN': _out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
-        })
+        if self.protocol.hasMultLatentVars():
+            path = glob(self.protocol.getOutputDir("analyze.*/kmeans*"))[0]
+            self._updateFilenamesDict({
+                'output_umap': os.path.join(path, 'umap.png'),
+                'output_umaphex': os.path.join(path, 'umap_hex.png'),
+                'output_pca': os.path.join(path, 'z_pca.png'),
+                'output_pcahex': os.path.join(path, 'z_pca_hex.png'),
+                'output_notebook': os.path.join(path, '../cryoDRGN_viz.ipynb')
+            })
+        else:
+            path = glob(self.protocol.getOutputDir("analyze.*"))[0]
+            self._updateFilenamesDict({
+                'output_hist': os.path.join(path, 'z_hist.png'),
+                'output_dist': os.path.join(path, 'z.png'),
+                'output_notebook': os.path.join(path, 'cryoDRGN_viz.ipynb')
+            })
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
@@ -73,16 +72,21 @@ class CryoDrgnViewer(EmProtocolViewer):
                       choices=['slices', 'chimera'],
                       default=VOLUME_SLICES,
                       display=EnumParam.DISPLAY_HLIST,
-                      label='Display volume with',
-                      help='*slices*: display volumes as 2D slices along z axis.\n'
-                           '*chimera*: display volumes as surface with Chimera.')
+                      label='Display K-means volumes with',
+                      help="Cryodrgn analyze uses the k-means clustering algorithm to "
+                           "partition the latent space into k regions (by default k=20). "
+                           "A density map is generated from the center of each of these "
+                           "clusters. The kmeans20 volumes provide an initial set of "
+                           "representative density maps to visually inspect (and not "
+                           "necessarily to assign classes).")
         if self.protocol.hasMultLatentVars():
             form.addParam('useHexBin', BooleanParam, default=False,
                           label="Use hexagonal bins for the plots?")
             form.addParam('doShowPCA', LabelParam,
                           label='Show PCA projection of latent space encodings')
-            form.addParam('doShowUMAP', LabelParam,
-                          label="Show UMAP visualization of latent space encodings")
+            if not self.protocol.skipUmap:
+                form.addParam('doShowUMAP', LabelParam,
+                              label="Show UMAP visualization of latent space encodings")
         else:
             form.addParam('doShowDistr', LabelParam,
                           label='Show latent coordinates distribution')
@@ -139,10 +143,10 @@ class CryoDrgnViewer(EmProtocolViewer):
         cmdFile = prot._getExtraPath('chimera_volumes.cxc')
 
         with open(cmdFile, 'w+') as f:
-            for vol in self.protocol.Volumes.getFiles():
+            for vol in prot.getFiles():
                 localVol = os.path.relpath(vol, extra)
                 if os.path.exists(vol):
-                    f.write("open %s\n" % localVol)
+                    f.write(f"open {localVol}\n")
             f.write('tile\n')
 
         view = ChimeraView(cmdFile)
@@ -191,9 +195,9 @@ class CryoDrgnViewer(EmProtocolViewer):
             if self.serverMode:
                 args = '--no-browser --port 8888 '
             else:
-                args = '%s ' % os.path.basename(fn)
+                args = f"{os.path.basename(fn)}"
 
-            program.append('jupyter notebook %s' % args)
+            program.append(f"jupyter notebook {args}")
 
             if os.path.exists(fn):
                 fnDir = os.path.dirname(fn)
