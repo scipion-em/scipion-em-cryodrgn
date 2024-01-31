@@ -28,6 +28,8 @@ import pyworkflow.object as pwobj
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 
+from cryodrgn import Plugin
+from cryodrgn.constants import V3_1_0
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 
@@ -86,7 +88,6 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
             self._getFileName('input_parts'),
             f"--poses {self._getFileName('input_poses')}",
             f"--ctf {self._getFileName('input_ctfs')}",
-            "--load latest" if self.doContinue else "",
             f"--zdim {run.zDim}",
             f"-o {self.getOutputDir()}",
             f"-n {self.numEpochs}",
@@ -94,8 +95,12 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
             f"--enc-layers {run.qLayers}",
             f"--enc-dim {run.qDim}",
             f"--dec-layers {run.pLayers}",
-            f"--dec-dim {run.pDim}"
+            f"--dec-dim {run.pDim}",
+            "--load latest" if self.doContinue else ""
         ]
+
+        if Plugin.versionGE(V3_1_0):
+            args.append(f"--datadir {self._getExtraPath('input')}")
 
         if run.doWindow:
             args.append(f"--window-r {run.winSize}")

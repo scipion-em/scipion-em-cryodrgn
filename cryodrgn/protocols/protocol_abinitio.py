@@ -30,7 +30,8 @@ import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 from pwem.objects import SetOfParticles, Volume
 
-from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO
+from cryodrgn import Plugin
+from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO, V3_1_0
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 
@@ -71,7 +72,7 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
         form.addParam('extraParams', params.StringParam, default="",
                       label="Extra params",
                       help="Here you can provide all extra command-line "
-                           "parameters. See *cryodrgn abinit_homo -h* for help.")
+                           "parameters. See *cryodrgn abinit_het -h* for help.")
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
@@ -127,12 +128,15 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
         args = [
             self._getFileName('input_parts'),
             f"--ctf {self._getFileName('input_ctfs')}",
-            "--load latest" if self.doContinue else "",
             f"-o {self.getOutputDir()}",
             f"-n {self.numEpochs}",
             f"--t-extent {run.searchRange}",
             f"--ps-freq {run.psFreq}",
+            "--load latest" if self.doContinue else ""
         ]
+
+        if Plugin.versionGE(V3_1_0):
+            args.append(f"--datadir {self._getExtraPath('input')}")
 
         if protType == AB_INITIO_HETERO:
             args.extend([
