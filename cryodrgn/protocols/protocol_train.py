@@ -103,6 +103,9 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
         if not run.doInvert:  # neg. stain only
             args.append('--uninvert-data')
 
+        if run.lazyLoad:
+            args.append("--lazy")
+
         if len(self.getGpuList()) > 1:
             args.append('--multigpu')
 

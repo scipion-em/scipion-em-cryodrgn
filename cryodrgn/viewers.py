@@ -25,24 +25,23 @@
 # **************************************************************************
 
 import os
+from glob import glob
 
-from pyworkflow.protocol.params import (LabelParam, EnumParam,
-                                        IntParam, BooleanParam)
+from pyworkflow.protocol.params import LabelParam, EnumParam, BooleanParam
 from pyworkflow.protocol.executor import StepExecutor
 from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
-from . import Plugin
-from .protocols import CryoDrgnProtTrain, CryoDrgnProtAbinitio
-from .constants import (EPOCH_LAST, EPOCH_SELECTION,
-                        VOLUME_SLICES, VOLUME_CHIMERA)
+from cryodrgn import Plugin
+from cryodrgn.protocols import CryoDrgnProtAnalyze
+from cryodrgn.constants import VOLUME_SLICES, VOLUME_CHIMERA
 
 
 class CryoDrgnViewer(EmProtocolViewer):
     """ Visualization of cryoDRGN results. """
 
     _environments = [DESKTOP_TKINTER]
-    _targets = [CryoDrgnProtTrain, CryoDrgnProtAbinitio]
+    _targets = [CryoDrgnProtAnalyze]
     _label = 'analyze results'
 
     def __init__(self, **kwargs):
@@ -51,10 +50,10 @@ class CryoDrgnViewer(EmProtocolViewer):
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
         prot = self.protocol
-        self._epoch = prot.getLastEpoch()
 
         def _out(f):
-            return os.path.join(prot.getOutputDir(f'analyze.{self._epoch}'), f)
+            path = glob(prot.getOutputDir("analyze.*"))[0]
+            return os.path.join(path, f)
 
         self._updateFilenamesDict({
             'output_notebook': _out('cryoDRGN_viz.ipynb'),
@@ -70,14 +69,6 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
-        form.addHidden('viewEpoch', EnumParam,
-                       choices=['last', 'selection'], default=EPOCH_LAST,
-                       display=EnumParam.DISPLAY_LIST,
-                       label="Epoch to analyze")
-        form.addHidden('epochNum', IntParam,
-                       condition='viewEpoch==%d' % EPOCH_SELECTION,
-                       label="Epoch number")
-
         form.addParam('displayVol', EnumParam,
                       choices=['slices', 'chimera'],
                       default=VOLUME_SLICES,
@@ -141,33 +132,6 @@ class CryoDrgnViewer(EmProtocolViewer):
         except Exception as e:
             self.showError(str(e))
 
-    def _getVolumes(self):
-        """ Returns a list of volume names for chimerax. """
-        prot = self.protocol
-        vols = []
-        if prot.hasMultLatentVars():
-            fn = 'output_volN'
-            num = prot.ksamples.get()
-        else:
-            fn = 'output_vol'
-            num = 10
-
-        for volId in range(num):
-            if prot.hasMultLatentVars():
-                volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
-                                          id=volId)
-            else:
-                volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
-
-            if os.path.exists(volFn):
-                vols.append(volFn)
-            else:
-                raise FileNotFoundError("Volume %s does not exists. \n"
-                                        "Please select a valid epoch "
-                                        "number." % volFn)
-
-        return vols
-
     def _showVolumesChimera(self):
         """ Create a chimera script to visualize selected volumes. """
         prot = self.protocol
@@ -175,7 +139,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         cmdFile = prot._getExtraPath('chimera_volumes.cxc')
 
         with open(cmdFile, 'w+') as f:
-            for vol in self._getVolumes():
+            for vol in self.protocol.Volumes.getFiles():
                 localVol = os.path.relpath(vol, extra)
                 if os.path.exists(vol):
                     f.write("open %s\n" % localVol)
@@ -190,10 +154,10 @@ class CryoDrgnViewer(EmProtocolViewer):
         path = self.protocol._getExtraPath('volumes.sqlite')
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
-    def _showPlot(self, fn, epoch):
+    def _showPlot(self, fn):
         import matplotlib.image as mpimg
         import matplotlib.pyplot as plt
-        fn = self._getFileName(fn, epoch=epoch)
+        fn = self._getFileName(fn)
         if os.path.exists(fn):
             img = mpimg.imread(fn)
             imgplot = plt.imshow(img)
@@ -201,28 +165,28 @@ class CryoDrgnViewer(EmProtocolViewer):
             plt.show()
             return [imgplot]
         else:
-            self.showError('File %s not found! Have you run analysis?' % fn)
+            self.showError(f"File {fn} not found! Have you run analysis?")
 
     def _showHistogram(self, paramName=None):
-        self._showPlot('output_hist', epoch=self._epoch)
+        self._showPlot('output_hist')
 
     def _showDistribution(self, paramName=None):
-        self._showPlot('output_dist', epoch=self._epoch)
+        self._showPlot('output_dist')
 
     def _showPCA(self, paramName=None):
         fn = 'output_pcahex' if self.useHexBin else 'output_pca'
-        self._showPlot(fn, epoch=self._epoch)
+        self._showPlot(fn)
 
     def _showUMAP(self, paramName=None):
         fn = 'output_umaphex' if self.useHexBin else 'output_umap'
-        self._showPlot(fn, epoch=self._epoch)
+        self._showPlot(fn)
 
     def _showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
 
         def _extraWork():
             program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
-            fn = self._getFileName('output_notebook', epoch=self._epoch)
+            fn = self._getFileName('output_notebook')
 
             if self.serverMode:
                 args = '--no-browser --port 8888 '

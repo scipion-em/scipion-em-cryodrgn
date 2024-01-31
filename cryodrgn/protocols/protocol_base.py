@@ -111,6 +111,12 @@ class CryoDrgnProtBase(ProtProcessParticles):
                       label="Window size",
                       help="Circular windowing mask inner radius")
 
+        form.addParam('lazyLoad', params.BooleanParam, default=False,
+                      condition='not doContinue',
+                      label="Use lazy loading?",
+                      help="Lazy loading if full dataset is too large to "
+                           "fit in memory.")
+
         form.addParam('zDim', params.IntParam, default=8,
                       condition='not doContinue',
                       validators=[params.Positive],
@@ -266,11 +272,11 @@ class CryoDrgnProtBase(ProtProcessParticles):
 
     def _getInputParticles(self, pointer=False):
         if self.doContinue and self.continueRun.hasValue():
-            input = self.continueRun.get().inputParticles
+            parts = self.continueRun.get().inputParticles
         else:
-            input = self.inputParticles
+            parts = self.inputParticles
 
-        return input if pointer else input.get()
+        return parts if pointer else parts.get()
 
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()
