@@ -53,14 +53,18 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
-        def out(*p):
-            return os.path.join(self.getOutputDir(f'analyze.{self._epoch}'), *p)
+        def out(p):
+            return self.getOutputDir(f'analyze.{self._epoch}', p)
 
         myDict = {
             'output_vol': out('vol_%(id)03d.mrc'),
             'output_volN': out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
             'z_values': out('z_values.txt'),
             'z_valuesN': out('kmeans%(ksamples)d/z_values.txt'),
+            'kmeans_centers': out('kmeans%(ksamples)d/centers_ind.txt'),
+            'graph_path': out('graph_traversal/path.txt'),
+            'graph_pathZ': out('graph_traversal/z.path.txt'),
+            'graph_vols': out('graph_traversal'),
         }
         self._updateFilenamesDict(myDict)
 
@@ -89,6 +93,17 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         form.addSection(label='Latent space')
         form.addParam('skipUmap', params.BooleanParam, default=False,
                       label="Skip running UMAP")
+
+        form.addParam('doGraphTraversal', params.BooleanParam, default=False,
+                      label="Do graph traversal?",
+                      help="CryoDRGN's graph traversal algorithm builds a nearest "
+                           "neighbor graph between all the latent embeddings, and "
+                           "then performs Dijkstra's algorithm to find the shortest "
+                           "path on the graph between the anchors nodes. The "
+                           "idea is to define a trajectory in latent space while "
+                           "remaining on the data manifold since we don't want "
+                           "to generate structures from unoccupied regions of "
+                           "the latent space.")
 
         group = form.addGroup('Volume generation')
         group.addParam('doFlip', params.BooleanParam, default=False,
@@ -130,6 +145,9 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
     def runAnalysisStep(self, epoch):
         pwutils.makePath(self.getOutputDir())
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
+        if self.doGraphTraversal and self.hasMultLatentVars():
+            self._runProgram('graph_traversal', self._getGraphArgs())
+            self._runProgram('eval_vol', self._getEvalArgs())
 
     def createOutputStep(self):
         """ Create a set of volumes with z_values. """
@@ -155,7 +173,8 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             warnings.append("Input protocol has *zDim=1*, the following "
                             "parameters will be ignored:\n"
                             "\t- Number of principal components\n"
-                            "\t- Number of K-means samples to generate")
+                            "\t- Number of K-means samples to generate"
+                            "\t- Do graph traversal?")
 
         return warnings
 
@@ -198,6 +217,26 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             "--skip-umap" if self.skipUmap else "",
             f"--ksample {self.ksamples}" if self.hasMultLatentVars() else "",
             f"--pc {self.pc}" if self.hasMultLatentVars() else ""
+        ]
+
+        return args
+
+    def _getGraphArgs(self):
+        args = [
+            self.inputProt.get()._getFileName('z_final'),
+            f"--anchors $(cat {self._getFileName('kmeans_centers', ksamples=self.ksamples)})",
+            f"-o {self._getFileName('graph_path')}",
+            f"--out-z {self._getFileName('graph_pathZ')}"
+        ]
+
+        return args
+
+    def _getEvalArgs(self):
+        args = [
+            self.inputProt.get()._getFileName('weights_final'),
+            f"-c {self.inputProt.get()._getFileName('config')}",
+            f"--zfile {self._getFileName('graph_pathZ')}",
+            f"-o {self._getFileName('graph_vols')}"
         ]
 
         return args
@@ -253,6 +292,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         pwutils.cleanPath(path)
         volSet = SetOfVolumes(filename=path)
         volSet.setSamplingRate(samplingRate)
+        volSet.setObjComment("k-means sample volumes")
         volId = 0
         if type(zValues[0]) is not list:
             # csvList requires each item as a list

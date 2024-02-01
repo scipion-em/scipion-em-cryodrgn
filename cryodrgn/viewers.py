@@ -61,6 +61,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                 'output_pca_volN': out('../pc%(pc)d/vol_%(id)03d.mrc'),
                 'output_umap_pcN': out('../pc%(pc)d/umap.png'),
                 'output_umap_pcN_traversal': out('../pc%(pc)d/umap_traversal_connected.png'),
+                'output_graph_vol': out('../graph_traversal/vol_000.mrc'),
                 'output_notebook': out('../cryoDRGN_viz.ipynb')
             })
         else:
@@ -74,11 +75,13 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
-        form.addParam('displayVol', EnumParam,
+        form.addParam('displayType', EnumParam,
                       choices=['slices', 'chimera'],
                       default=VOLUME_SLICES,
                       display=EnumParam.DISPLAY_HLIST,
-                      label='Display K-means volumes with',
+                      label='Display volumes with')
+        form.addParam('displayVolKmeans', LabelParam,
+                      label='Show K-means volumes',
                       help="Cryodrgn analyze uses the k-means clustering algorithm to "
                            "partition the latent space into k regions (by default k=20). "
                            "A density map is generated from the center of each of these "
@@ -86,6 +89,10 @@ class CryoDrgnViewer(EmProtocolViewer):
                            "representative density maps to visually inspect (and not "
                            "necessarily to assign classes).")
         if self.protocol.hasMultLatentVars():
+            if self.protocol.doGraphTraversal:
+                form.addParam('displayVolGraph', LabelParam,
+                              label='Show graph traversal movie in ChimeraX')
+
             form.addParam('useHexBin', BooleanParam, default=False,
                           label="Use hexagonal bins for the plots?")
 
@@ -100,11 +107,8 @@ class CryoDrgnViewer(EmProtocolViewer):
                                 "latent space and how the UMAP embedding (e.g. a nonlinear "
                                 "8D → 2D embedding) is related to the PCA projection (a "
                                 "linear projection from 8D → 2D).")
-            group.addParam('displayVolPCA', EnumParam,
-                           choices=['slices', 'chimera'],
-                           default=VOLUME_SLICES,
-                           display=EnumParam.DISPLAY_HLIST,
-                           label='Display PCX volumes with',
+            group.addParam('displayVolPCA', LabelParam,
+                           label='Show PCX volumes with',
                            help="By default, the 10 volumes are generated at equally spaced "
                                 "points between the first and 99th percentile of the data "
                                 "distribution projected onto each principal component.")
@@ -141,113 +145,102 @@ class CryoDrgnViewer(EmProtocolViewer):
         self._createFilenameTemplates()
 
         visDict = {
-            'displayVol': lambda paramName: self._showVolumes(pca=False),
-            'doShowNotebook': self._showNotebook
+            'displayVolKmeans': lambda paramName: self.showVolumes(key='kmeans'),
+            'doShowNotebook': self.showNotebook
         }
 
         if self.protocol.hasMultLatentVars():
             visDict.update({
-                'displayVolPCA': lambda paramName: self._showVolumes(pca=True),
-                'doShowPCA': self._showPCA,
-                'doShowUMAP': self._showUMAP,
-                'doShowPcaToUmap': self._showPCAToUMAP,
-                'doShowPcaToUmapTrav': self._showPCAToUMAPTrav
+                'displayVolPCA': lambda paramName: self.showVolumes(key='pca'),
+                'doShowPCA': self.showPCA,
+                'doShowUMAP': self.showUMAP,
+                'doShowPcaToUmap': self.showPCAToUMAP,
+                'doShowPcaToUmapTrav': self.showPCAToUMAPTrav
             })
+            if self.protocol.doGraphTraversal:
+                visDict['displayVolGraph'] = lambda paramName: self.showVolumes(key='graph')
         else:
             visDict.update({
-                'doShowDistr': self._showDistribution,
-                'doShowHistogram': self._showHistogram
+                'doShowDistr': self.showDistribution,
+                'doShowHistogram': self.showHistogram
             })
 
         return visDict
 
-    def _showVolumes(self, pca=False):
+    def showVolumes(self, key):
         try:
-            if self.displayVol == VOLUME_CHIMERA:
-                return self._showVolumesChimera(pca)
-            elif self.displayVol == VOLUME_SLICES:
-                return self._showVolumeSlices(pca)
+            if self.displayType == VOLUME_CHIMERA:
+                return self.showVolumesChimera(key)
+            elif self.displayType == VOLUME_SLICES:
+                return self.showVolumeSlices(key)
         except Exception as e:
             self.showError(str(e))
 
-    def _showVolumesChimera(self, pca=False):
+    def showVolumesChimera(self, key='kmeans'):
         """ Create a chimera script to visualize selected volumes. """
         prot = self.protocol
-        vols = self._getVolumesNamesPCA() if pca else prot.Volumes.getFiles()
-        extra = prot._getExtraPath()
-        cmdFile = prot._getExtraPath('chimera_volumes.cxc')
+        if key == 'kmeans':
+            vols = list(prot.Volumes.getFiles())
+        elif key == 'pca':
+            vols = self._getVolumesNamesPCA()
+        elif key == 'graph':
+            vols = [self._getFileName('output_graph_vol')]
+        else:
+            raise KeyError("Unknown volume type")
 
-        with open(cmdFile, 'w+') as f:
-            for vol in vols:
-                localVol = os.path.relpath(vol, extra)
-                if os.path.exists(vol):
-                    f.write(f"open {localVol}\n")
-            f.write('tile\n')
+        cmdFile = prot._getExtraPath('chimera_volumes.cxc')
+        localVol = os.path.relpath(vols[0], prot._getExtraPath())
+
+        if os.path.exists(vols[0]):
+            with open(cmdFile, 'w+') as f:
+                f.write(f"open {os.path.dirname(localVol)}/vol_*.mrc vseries true\n")
+                if key == 'graph':
+                    f.write("vol all color cornflowerblue\n"
+                            "mov record\n"
+                            "mseries all\n"
+                            "mov encode graph_traversal.mp4 framerate 15\n")
+        else:
+            raise FileNotFoundError(f"File {vols[0]} not found!")
 
         view = ChimeraView(cmdFile)
 
         return [view]
 
-    def _showVolumeSlices(self, pca=False):
+    def showVolumeSlices(self, key='kmeans'):
         """ Open a sqlite with all volumes selected for visualization. """
-        if pca:
+        if key == 'pca':
             path = self.protocol._getExtraPath(f"volumes_pc{self.pcNum}.sqlite")
             files = self._getVolumesNamesPCA()
             samplingRate = self.protocol._getOutputSampling()
             self.createVolumesSqlite(files, path, samplingRate)
-        else:
+        elif key == 'kmeans':
             path = self.protocol._getExtraPath('volumes.sqlite')
+        else:  # only chimerax allowed for graph volumes
+            return self.showVolumesChimera(key='graph')
 
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
-    def _getVolumesNamesPCA(self):
-        """ Get filenames for 10 output volumes along PCX. """
-        names = []
-        vols = [self._getFileName('output_pca_volN',
-                                  pc=self.pcNum,
-                                  id=i) for i in range(10)]
-        for fn in vols:
-            if os.path.exists(fn):
-                names.append(fn)
-            else:
-                raise FileNotFoundError(f"File {fn} not found!")
-
-        return names
-
-    def _showPlot(self, fn, **kwargs):
-        import matplotlib.image as mpimg
-        import matplotlib.pyplot as plt
-        fn = self._getFileName(fn, **kwargs)
-        if os.path.exists(fn):
-            img = mpimg.imread(fn)
-            imgplot = plt.imshow(img)
-            plt.axis('off')
-            plt.show()
-            return [imgplot]
-        else:
-            self.showError(f"File {fn} not found!")
-
-    def _showHistogram(self, paramName=None):
+    def showHistogram(self, paramName=None):
         self._showPlot('output_hist')
 
-    def _showDistribution(self, paramName=None):
+    def showDistribution(self, paramName=None):
         self._showPlot('output_dist')
 
-    def _showPCA(self, paramName=None):
+    def showPCA(self, paramName=None):
         fn = 'output_pcahex' if self.useHexBin else 'output_pca'
         self._showPlot(fn)
 
-    def _showUMAP(self, paramName=None):
+    def showUMAP(self, paramName=None):
         fn = 'output_umaphex' if self.useHexBin else 'output_umap'
         self._showPlot(fn)
 
-    def _showPCAToUMAP(self, paramName=None):
+    def showPCAToUMAP(self, paramName=None):
         self._showPlot('output_umap_pcN', pc=self.pcNum)
 
-    def _showPCAToUMAPTrav(self, paramName=None):
+    def showPCAToUMAPTrav(self, paramName=None):
         self._showPlot('output_umap_pcN_traversal', pc=self.pcNum)
 
-    def _showNotebook(self, paramName=None):
+    def showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
 
         def _extraWork():
@@ -275,3 +268,31 @@ class CryoDrgnViewer(EmProtocolViewer):
         from threading import Thread
         thread = Thread(target=_extraWork)
         thread.start()
+
+    # --------------------------- UTILS functions -----------------------------
+    def _getVolumesNamesPCA(self):
+        """ Get filenames for 10 output volumes along PCX. """
+        names = []
+        vols = [self._getFileName('output_pca_volN',
+                                  pc=self.pcNum,
+                                  id=i) for i in range(10)]
+        for fn in vols:
+            if os.path.exists(fn):
+                names.append(fn)
+            else:
+                raise FileNotFoundError(f"File {fn} not found!")
+
+        return names
+
+    def _showPlot(self, fn, **kwargs):
+        import matplotlib.image as mpimg
+        import matplotlib.pyplot as plt
+        fn = self._getFileName(fn, **kwargs)
+        if os.path.exists(fn):
+            img = mpimg.imread(fn)
+            imgplot = plt.imshow(img)
+            plt.axis('off')
+            plt.show()
+            return [imgplot]
+        else:
+            self.showError(f"File {fn} not found!")
