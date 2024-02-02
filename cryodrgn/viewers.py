@@ -113,9 +113,8 @@ class CryoDrgnViewer(EmProtocolViewer):
                                 "points between the first and 99th percentile of the data "
                                 "distribution projected onto each principal component.")
 
-            if not self.protocol.skipUmap:
-                group.addParam('doShowUMAP', LabelParam,
-                               label="Show UMAP visualization of latent space encodings")
+            group.addParam('doShowUMAP', LabelParam,
+                           label="Show UMAP visualization of latent space encodings")
 
             group.addParam('doShowPcaToUmap', LabelParam,
                            label="Show UMAP embeddings colored by PCX value")

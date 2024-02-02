@@ -35,8 +35,10 @@ import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 from pwem.protocols import ProtAnalysis3D
 from pwem.objects import SetOfVolumes, Volume
+from pwem.emlib.image import ImageHandler, DT_FLOAT
 
-from cryodrgn.constants import EPOCH_LAST, EPOCH_SELECTION, Z_VALUES, AB_INITIO_HOMO
+from cryodrgn.constants import (EPOCH_LAST, EPOCH_SELECTION, Z_VALUES,
+                                AB_INITIO_HOMO, CLUSTER_WARD)
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 
@@ -45,18 +47,17 @@ class outputs(Enum):
 
 
 class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
-    """ CryoDrgn protocol to visualize latent space and generate volumes or
-        to perform conformational landscape analysis. """
+    """ CryoDrgn protocol to visualize latent space and generate volumes. """
 
     _label = "analyze results"
     _possibleOutputs = outputs
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
-        def out(p):
-            return self.getOutputDir(f'analyze.{self._epoch}', p)
+        out = lambda p: self.getOutputDir(f'analyze.{self._epoch}', p)
 
         myDict = {
+            'input_mask': self._getExtraPath("input_mask.mrc"),
             'output_vol': out('vol_%(id)03d.mrc'),
             'output_volN': out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
             'z_values': out('z_values.txt'),
@@ -65,6 +66,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             'graph_path': out('graph_traversal/path.txt'),
             'graph_pathZ': out('graph_traversal/z.path.txt'),
             'graph_vols': out('graph_traversal'),
+            'umaps': out('umap.pkl')
         }
         self._updateFilenamesDict(myDict)
 
@@ -90,10 +92,17 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
                       condition='inputEpoch==%d' % EPOCH_SELECTION,
                       label="Epoch number")
 
-        form.addSection(label='Latent space')
-        form.addParam('skipUmap', params.BooleanParam, default=False,
-                      label="Skip running UMAP")
+        form.addSection('Volume generation')
+        form.addParam('doFlip', params.BooleanParam, default=False,
+                      label="Flip handedness of output volumes")
+        form.addParam('doInvert', params.BooleanParam, default=False,
+                      label="Invert contrast of output volumes")
+        form.addParam('doDownsample', params.BooleanParam, default=False,
+                      label="Downsample volumes?")
+        form.addParam('boxSize', params.IntParam, default=128,
+                      condition='doDownsample', label="New box size (px)")
 
+        form.addSection(label='Latent space')
         form.addParam('doGraphTraversal', params.BooleanParam, default=False,
                       label="Do graph traversal?",
                       help="CryoDRGN's graph traversal algorithm builds a nearest "
@@ -104,27 +113,59 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
                            "remaining on the data manifold since we don't want "
                            "to generate structures from unoccupied regions of "
                            "the latent space.")
+        form.addParam('pc', params.IntParam, default=2,
+                      label="Number of principal components",
+                      help="Number of principal component traversals to generate.")
+        form.addParam('ksamples', params.IntParam, default=20,
+                      label='Number of K-means samples to generate',
+                      help="*cryodrgn analyze* uses the k-means clustering "
+                           "algorithm to partition the latent space into "
+                           "regions (by default k=20 regions), and generate a "
+                           "density map from the center of each of these "
+                           "regions. The goal is to provide a tractable number "
+                           "of representative density maps to visually inspect.")
 
-        group = form.addGroup('Volume generation')
-        group.addParam('doFlip', params.BooleanParam, default=False,
-                       label="Flip handedness of output volumes")
-        group.addParam('doInvert', params.BooleanParam, default=False,
-                       label="Invert contrast of output volumes")
-        group.addParam('doDownsample', params.BooleanParam, default=False,
-                       label="Downsample volumes?")
-        group.addParam('boxSize', params.IntParam, default=128,
-                       condition='doDownsample', label="New box size (px)")
-        group.addParam('pc', params.IntParam, default=2,
-                       label="Number of principal components",
-                       help="Number of principal component traversals to generate.")
-        group.addParam('ksamples', params.IntParam, default=20,
-                       label='Number of K-means samples to generate',
-                       help="*cryodrgn analyze* uses the k-means clustering "
-                            "algorithm to partition the latent space into "
-                            "regions (by default k=20 regions), and generate a "
-                            "density map from the center of each of these "
-                            "regions. The goal is to provide a tractable number "
-                            "of representative density maps to visually inspect.")
+        form.addSection(label='Landscape analysis')
+        form.addParam('doLandscape', params.BooleanParam, default=False,
+                      label="Perform conformational landscape analysis?",
+                      help="Runs landscape analysis tool for comprehensive and "
+                           "quantitative analysis of a trained cryodrgn model, "
+                           "including *1) assigning discrete conformational "
+                           "states (and providing their particle lists for "
+                           "refinement) and 2) visualizing continuous "
+                           "conformational landscapes*. This tool also allows "
+                           "the user to focus their analysis on specific regions "
+                           "of interest by providing custom masks.")
+
+        form.addParam('numVols', params.IntParam, default=500,
+                      condition='doLandscape',
+                      label="Number of volumes to generate")
+        group = form.addGroup('Masking',
+                              condition='doLandscape')
+        group.addParam('autoMask', params.BooleanParam, default=True,
+                       label="Mask volumes automatically?")
+        group.addParam('inputMask', params.PointerParam, important=True,
+                       condition="not autoMask",
+                       pointerClass='VolumeMask', allowsNull=True,
+                       label="Custom mask")
+        group.addParam('threshold', params.FloatParam, default=0.,
+                       condition="autoMask",
+                       label="Threshold for masking",
+                       help="Default 0 means a half of max density value")
+        group.addParam('dilate', params.IntParam, default=5,
+                       condition="autoMask",
+                       label="Dilation (px)",
+                       help="Dilate initial mask by this amount")
+
+        group = form.addGroup('Clustering',
+                              condition='doLandscape')
+        group.addParam('linkage', params.EnumParam,
+                       choices=['average', 'ward'],
+                       default=CLUSTER_WARD,
+                       display=params.EnumParam.DISPLAY_HLIST,
+                       label="Linkage for agglomerative clustering")
+        group.addParam('numClusters', params.IntParam, default=10,
+                       label="Number of clusters")
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
@@ -145,12 +186,17 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
     def runAnalysisStep(self, epoch):
         pwutils.makePath(self.getOutputDir())
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
+
         if self.doGraphTraversal and self.hasMultLatentVars():
             self._runProgram('graph_traversal', self._getGraphArgs())
             self._runProgram('eval_vol', self._getEvalArgs())
 
+        if self.doLandscape:
+            self.convertInputs(epoch)
+            self._runProgram('analyze_landscape', self._getLandscapeArgs(epoch))
+
     def createOutputStep(self):
-        """ Create a set of volumes with z_values. """
+        """ Create a set of k-means sample volumes with z_values. """
         fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self._getOutputSampling()
         files, zValues = self._getVolumes()
@@ -201,9 +247,35 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             if newBox > origBox:
                 errors.append("You cannot upscale volumes!")
 
+        if self.doLandscape:
+            if self.inputMask.hasValue():
+                maskSize = self.inputMask.get().getXDim()
+                origBox = inputProt._getInputParticles().getXDim()
+                volSize = self.boxSize if self.doDownsample else origBox
+                if maskSize != volSize:
+                    errors.append("Mask dimensions do not match the output volumes!")
+
+            if not self.autoMask and not self.inputMask.hasValue():
+                errors.append("Please provide an input mask or choose auto-masking!")
+
         return errors
 
     # --------------------------- UTILS functions -----------------------------
+    def convertInputs(self, epoch):
+        # Copy analyze.epoch/umap.pkl to landscape.epoch folder
+        pwutils.makePath(self.getOutputDir(f'landscape.{epoch}'))
+        pwutils.copyFile(self._getFileName('umaps'),
+                         self.getOutputDir(f'landscape.{epoch}/umap.pkl'))
+
+        if not self.autoMask:
+            # convert mask to mrc
+            maskFn = self.inputMask.get().getFileName()
+            if pwutils.getExt(maskFn) == ".mrc":
+                pwutils.createLink(maskFn, self._getFileName("input_mask"))
+            else:
+                ih = ImageHandler()
+                ih.convert(maskFn, self._getFileName("input_mask"), DT_FLOAT)
+
     def _getAnalyzeArgs(self, epoch):
         args = [
             self.inputProt.get()._getExtraPath("output"),
@@ -214,7 +286,6 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             f"-d {self.boxSize}" if self.doDownsample else "",
             "--flip" if self.doFlip else "",
             "--invert" if self.doInvert else "",
-            "--skip-umap" if self.skipUmap else "",
             f"--ksample {self.ksamples}" if self.hasMultLatentVars() else "",
             f"--pc {self.pc}" if self.hasMultLatentVars() else ""
         ]
@@ -238,6 +309,32 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             f"--zfile {self._getFileName('graph_pathZ')}",
             f"-o {self._getFileName('graph_vols')}"
         ]
+
+        return args
+
+    def _getLandscapeArgs(self, epoch):
+        args = [
+            self.inputProt.get()._getExtraPath("output"),
+            f"{epoch}",
+            f"-o {self.getOutputDir(f'landscape.{epoch}')}",
+            f"--Apix {self._getSamplingRate()}",
+            f"--device {self.gpuList.get()}",
+            "--skip-umap",
+            f"-N {self.numVols}",
+            f"--linkage {self.getEnumText('linkage')}",
+            f"-M {self.numClusters}",
+            f"-d {self.boxSize}" if self.doDownsample else "",
+            "--flip" if self.doFlip else "",
+        ]
+
+        if self.autoMask:
+            args.append(f"--dilate {self.dilate}")
+
+            if not self.threshold < 0.001:  # consider as 0
+                args.append(f"--thresh {self.threshold}")
+
+        else:
+            args.append(f"--mask {self._getFileName('input_mask')}")
 
         return args
 
