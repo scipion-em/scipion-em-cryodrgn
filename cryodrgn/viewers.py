@@ -108,7 +108,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                                 "8D → 2D embedding) is related to the PCA projection (a "
                                 "linear projection from 8D → 2D).")
             group.addParam('displayVolPCA', LabelParam,
-                           label='Show PCX volumes with',
+                           label='Show PCX volumes',
                            help="By default, the 10 volumes are generated at equally spaced "
                                 "points between the first and 99th percentile of the data "
                                 "distribution projected onto each principal component.")
@@ -195,9 +195,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                 f.write(f"open {os.path.dirname(localVol)}/vol_*.mrc vseries true\n")
                 if key == 'graph':
                     f.write("vol all color cornflowerblue\n"
-                            "mov record\n"
-                            "mseries all\n"
-                            "mov encode graph_traversal.mp4 framerate 15\n")
+                            "mseries all\n")
         else:
             raise FileNotFoundError(f"File {vols[0]} not found!")
 
