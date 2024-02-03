@@ -86,14 +86,15 @@ class Plugin(pwem.Plugin):
 
         cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.8",
                                              pattern="cuda")
-        toolkit = "%s.%s" % (cudaVersion.major, cudaVersion.minor)
+        toolkit = {11: 11.8, 12: 12.1}.get(cudaVersion.major, 11.8)
 
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
             f'conda create -y -n {ENV_NAME} python=3.10 &&',
             f'conda activate {ENV_NAME} &&',
-            f'conda install -y pytorch-gpu cudatoolkit={toolkit} -c pytorch -c conda-forge &&',
+            f'conda install -y cudatoolkit={toolkit} -c conda-forge &&',
+            f'conda install -y "pytorch<=1.12" pytorch-cuda={toolkit} -c pytorch -c nvidia &&',
             'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
