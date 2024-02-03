@@ -51,7 +51,7 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
     def _defineParams(self, form):
         CryoDrgnProtBase._defineParams(self, form)
         form.getParam('numEpochs').default = pwobj.Integer(30)
-        form.getParam('zDim').default = pwobj.Integer(1)
+        form.getParam('zDim').default = pwobj.Integer(8)
 
     def _defineAdvancedParams(self, form):
         form.addParam('protType', params.EnumParam,

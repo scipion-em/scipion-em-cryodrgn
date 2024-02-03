@@ -32,6 +32,7 @@ from enum import Enum
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from pyworkflow.constants import NEW
 import pyworkflow.object as pwobj
 from pwem.protocols import ProtAnalysis3D
 from pwem.objects import SetOfVolumes, Volume
@@ -50,6 +51,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
     """ CryoDrgn protocol to visualize latent space and generate volumes. """
 
     _label = "analyze results"
+    _devStatus = NEW
     _possibleOutputs = outputs
 
     def _createFilenameTemplates(self):
