@@ -27,8 +27,8 @@
 import os
 from glob import glob
 
-from pyworkflow.protocol.params import (LabelParam, EnumParam, BooleanParam,
-                                        IntParam)
+from pyworkflow.protocol.params import (LabelParam, EnumParam,
+                                        BooleanParam, IntParam)
 from pyworkflow.protocol.executor import StepExecutor
 from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
@@ -54,23 +54,32 @@ class CryoDrgnViewer(EmProtocolViewer):
             path = glob(self.protocol.getOutputDir("analyze.*/kmeans*"))[0]
             out = lambda p: os.path.join(path, p)
             self._updateFilenamesDict({
-                'output_umap': out('umap.png'),
-                'output_umaphex': out('umap_hex.png'),
-                'output_pca': out('z_pca.png'),
-                'output_pcahex': out('z_pca_hex.png'),
-                'output_pca_volN': out('../pc%(pc)d/vol_%(id)03d.mrc'),
-                'output_umap_pcN': out('../pc%(pc)d/umap.png'),
-                'output_umap_pcN_traversal': out('../pc%(pc)d/umap_traversal_connected.png'),
-                'output_graph_vol': out('../graph_traversal/vol_000.mrc'),
-                'output_notebook': out('../cryoDRGN_viz.ipynb')
+                'umap': out('umap.png'),
+                'umaphex': out('umap_hex.png'),
+                'pca': out('z_pca.png'),
+                'pcahex': out('z_pca_hex.png'),
+                'pca_volN': out('../pc%(pc)d/vol_%(id)03d.mrc'),
+                'umap_pcN': out('../pc%(pc)d/umap.png'),
+                'umap_pcN_traversal': out('../pc%(pc)d/umap_traversal_connected.png'),
+                'graph_vol': out('../graph_traversal/vol_000.mrc'),
+                'notebook': out('../cryoDRGN_viz.ipynb')
             })
         else:
             path = glob(self.protocol.getOutputDir("analyze.*"))[0]
             out = lambda p: os.path.join(path, p)
             self._updateFilenamesDict({
-                'output_hist': out('z_hist.png'),
-                'output_dist': out('z.png'),
-                'output_notebook': out('cryoDRGN_viz.ipynb')
+                'simple_hist': out('z_hist.png'),
+                'simple_dist': out('z.png'),
+                'notebook': out('cryoDRGN_viz.ipynb')
+            })
+        if self.protocol.doLandscape:
+            path = glob(self.protocol.getOutputDir("landscape.*"))[0]
+            out = lambda p: os.path.join(path, "clustering_L2_%(algorithm)s_%(clusters)d", p)
+            self._updateFilenamesDict({
+                'landscape_vols_vae': out('umap.png'),
+                'landscape_vols_vae_annot': out('umap_annotated.png'),
+                'landscape_vols_count': out('state_volume_counts.png'),
+                'landscape_parts_count': out('state_particle_counts.png'),
             })
 
     def _defineParams(self, form):
@@ -140,6 +149,19 @@ class CryoDrgnViewer(EmProtocolViewer):
         group.addParam('doShowNotebook', LabelParam,
                        label="Show Jupyter notebook")
 
+        if self.protocol.doLandscape:
+            form.addSection(label="Landscape analysis")
+            form.addParam('doShowVolsVae', LabelParam,
+                          label='Show volumes colored by cluster '
+                                'label in the VAE latent space')
+            form.addParam('doShowVolsVaeAnnot', LabelParam,
+                          label='Show volumes colored by cluster '
+                                'label in the VAE latent space (annotated)')
+            form.addParam('doShowPartsHist', LabelParam,
+                          label="Show particles histogram for each cluster")
+            form.addParam('doShowVolsHist', LabelParam,
+                          label="Show volumes histogram for each cluster")
+
     def _getVisualizeDict(self):
         self._createFilenameTemplates()
 
@@ -151,17 +173,25 @@ class CryoDrgnViewer(EmProtocolViewer):
         if self.protocol.hasMultLatentVars():
             visDict.update({
                 'displayVolPCA': lambda paramName: self.showVolumes(key='pca'),
-                'doShowPCA': self.showPCA,
-                'doShowUMAP': self.showUMAP,
-                'doShowPcaToUmap': self.showPCAToUMAP,
-                'doShowPcaToUmapTrav': self.showPCAToUMAPTrav
+                'doShowPCA': lambda paramName: self.showPlots(key='pca'),
+                'doShowUMAP': lambda paramName: self.showPlots(key='umap'),
+                'doShowPcaToUmap': lambda paramName: self.showPlots(key='umap_pcN'),
+                'doShowPcaToUmapTrav': lambda paramName: self.showPlots(key='umap_pcN_traversal')
             })
             if self.protocol.doGraphTraversal:
                 visDict['displayVolGraph'] = lambda paramName: self.showVolumes(key='graph')
         else:
             visDict.update({
-                'doShowDistr': self.showDistribution,
-                'doShowHistogram': self.showHistogram
+                'doShowDistr': lambda paramName: self.showPlots(key='simple_dist'),
+                'doShowHistogram': lambda paramName: self.showPlots(key='simple_hist')
+            })
+
+        if self.protocol.doLandscape:
+            visDict.update({
+                'doShowVolsVae': lambda paramName: self.showPlots(key='landscape_vols_vae'),
+                'doShowVolsVaeAnnot': lambda paramName: self.showPlots(key='landscape_vols_vae_annot'),
+                'doShowPartsHist': lambda paramName: self.showPlots(key='landscape_vols_count'),
+                'doShowVolsHist': lambda paramName: self.showPlots(key='landscape_parts_count')
             })
 
         return visDict
@@ -183,7 +213,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         elif key == 'pca':
             vols = self._getVolumesNamesPCA()
         elif key == 'graph':
-            vols = [self._getFileName('output_graph_vol')]
+            vols = [self._getFileName('graph_vol')]
         else:
             raise KeyError("Unknown volume type")
 
@@ -217,32 +247,24 @@ class CryoDrgnViewer(EmProtocolViewer):
 
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
-    def showHistogram(self, paramName=None):
-        self._showPlot('output_hist')
+    def showPlots(self, key):
+        kwargs = dict()
+        if key in ["pca", "umap"] and self.useHexBin:
+            key += "hex"
+        elif key.startswith('umap_pcN'):
+            kwargs['pc'] = self.pcNum
+        elif key.startswith('landscape'):
+            kwargs['algorithm'] = self.protocol.getEnumText('linkage')
+            kwargs['clusters'] = self.protocol.numClusters.get()
 
-    def showDistribution(self, paramName=None):
-        self._showPlot('output_dist')
-
-    def showPCA(self, paramName=None):
-        fn = 'output_pcahex' if self.useHexBin else 'output_pca'
-        self._showPlot(fn)
-
-    def showUMAP(self, paramName=None):
-        fn = 'output_umaphex' if self.useHexBin else 'output_umap'
-        self._showPlot(fn)
-
-    def showPCAToUMAP(self, paramName=None):
-        self._showPlot('output_umap_pcN', pc=self.pcNum)
-
-    def showPCAToUMAPTrav(self, paramName=None):
-        self._showPlot('output_umap_pcN_traversal', pc=self.pcNum)
+        return [self._showPlot(key, **kwargs)]
 
     def showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
 
         def _extraWork():
             program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
-            fn = self._getFileName('output_notebook')
+            fn = self._getFileName('notebook')
 
             if self.serverMode:
                 args = '--no-browser --port 8888 '
@@ -270,7 +292,7 @@ class CryoDrgnViewer(EmProtocolViewer):
     def _getVolumesNamesPCA(self):
         """ Get filenames for 10 output volumes along PCX. """
         names = []
-        vols = [self._getFileName('output_pca_volN',
+        vols = [self._getFileName('pca_volN',
                                   pc=self.pcNum,
                                   id=i) for i in range(10)]
         for fn in vols:
@@ -290,6 +312,6 @@ class CryoDrgnViewer(EmProtocolViewer):
             imgplot = plt.imshow(img)
             plt.axis('off')
             plt.show()
-            return [imgplot]
+            return imgplot
         else:
             self.showError(f"File {fn} not found!")
