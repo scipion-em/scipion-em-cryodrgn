@@ -193,7 +193,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             self._runProgram('graph_traversal', self._getGraphArgs())
             self._runProgram('eval_vol', self._getEvalArgs())
 
-        if self.doLandscape:
+        if self.doLandscape and self.hasMultLatentVars():
             self.convertInputs(epoch)
             self._runProgram('analyze_landscape', self._getLandscapeArgs(epoch))
 
@@ -221,8 +221,9 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             warnings.append("Input protocol has *zDim=1*, the following "
                             "parameters will be ignored:\n"
                             "\t- Number of principal components\n"
-                            "\t- Number of K-means samples to generate"
-                            "\t- Do graph traversal?")
+                            "\t- Number of K-means samples to generate\n"
+                            "\t- Do graph traversal?\n"
+                            "\t- Perform conformational landscape analysis?")
 
         return warnings
 
