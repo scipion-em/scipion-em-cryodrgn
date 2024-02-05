@@ -84,17 +84,14 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getCryoDrgnEnvName(version)
         FLAG = f"cryodrgn_{version}_installed"
 
-        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.8",
-                                             pattern="cuda")
-        toolkit = {11: 11.8, 12: 12.1}.get(cudaVersion.major, 11.8)
-
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
             f'conda create -y -n {ENV_NAME} python=3.10 &&',
             f'conda activate {ENV_NAME} &&',
-            f'conda install -y cudatoolkit={toolkit} -c conda-forge &&',
-            f'conda install -y "pytorch<=1.12" pytorch-cuda={toolkit} -c pytorch -c nvidia &&',
+            'conda install -y cudatoolkit=11.8 -c conda-forge &&',
+            'conda install -y "pytorch<=1.12" pytorch-cuda=11.8 -c pytorch -c nvidia &&',
+            'conda install -y libcufft -c nvidia &&',
             'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
