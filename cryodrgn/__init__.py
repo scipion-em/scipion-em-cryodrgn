@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.10'
+__version__ = '3.12'
 _references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
@@ -84,16 +84,17 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getCryoDrgnEnvName(version)
         FLAG = f"cryodrgn_{version}_installed"
 
-        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.6",
+        cudaVersion = cls.getVersionFromPath(pwem.Config.CUDA_LIB, default="11.8",
                                              pattern="cuda")
-        toolkit = "%s.%s" % (cudaVersion.major, cudaVersion.minor)
+        toolkit = {11: 11.8, 12: 12.1}.get(cudaVersion.major, 11.8)
 
         # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
-            f'conda create -y -n {ENV_NAME} python=3.9 &&',
+            f'conda create -y -n {ENV_NAME} python=3.10 &&',
             f'conda activate {ENV_NAME} &&',
-            f'conda install -y pytorch-gpu cudatoolkit={toolkit} -c pytorch -c conda-forge &&',
+            f'conda install -y cudatoolkit={toolkit} -c conda-forge &&',
+            f'conda install -y "pytorch<=1.12" pytorch-cuda={toolkit} -c pytorch -c nvidia &&',
             'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
@@ -101,12 +102,16 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
+        branches = {
+            V2_1_0: "2.1.0-beta",
+            V2_3_0: "2.3.0",
+            V3_1_0: "v3.1.0-beta"
+        }
 
-        branch = (V2_1_0 + "-beta") if version == V2_1_0 else version
         url = "https://github.com/zhonge/cryodrgn.git"
         gitCmds = [
             'cd .. &&',
-            f'git clone -b {branch} {url} cryodrgn-{version} &&',
+            f'git clone -b {branches[version]} {url} cryodrgn-{version} &&',
             f'cd cryodrgn-{version};'
         ]
         gitCmds.extend(installCmds)
@@ -147,7 +152,7 @@ class Plugin(pwem.Plugin):
         """
         v1 = cls.getActiveVersion()
         if v1 not in VERSIONS:
-            raise Exception("This version of cryoDRGN is not supported: ", v1)
+            raise ValueError("This version of cryoDRGN is not supported: ", v1)
 
         if VERSIONS.index(v1) < VERSIONS.index(version):
             return False

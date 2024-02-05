@@ -29,13 +29,12 @@ def getCryoDrgnEnvName(version):
     return "cryodrgn-%s" % version
 
 
-V1_0_0 = "1.0.0"
-V1_1_0 = "1.1.0"
 V2_1_0 = "2.1.0"
 V2_3_0 = "2.3.0"
+V3_1_0 = "3.1.0"
 
-VERSIONS = [V1_0_0, V1_1_0, V2_1_0, V2_3_0]
-CRYODRGN_DEFAULT_VER_NUM = V2_3_0
+VERSIONS = [V2_1_0, V2_3_0, V3_1_0]
+CRYODRGN_DEFAULT_VER_NUM = V3_1_0
 
 DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
@@ -56,3 +55,7 @@ CONFIG = "_cryodrgnConfig"
 # ab initio type
 AB_INITIO_HOMO = 0
 AB_INITIO_HETERO = 1
+
+# Linkage for agglomerative clustering
+CLUSTER_AVERAGE = 0
+CLUSTER_WARD = 1

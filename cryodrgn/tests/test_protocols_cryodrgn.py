@@ -24,91 +24,78 @@
 # *
 # **************************************************************************
 
-import os
-
-from pyworkflow.tests import BaseTest, DataSet, setupTestProject
+from pyworkflow.tests import DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 from pwem.protocols import ProtImportParticles
+from pwem.tests.workflows import TestWorkflow
 
-from ..protocols import (CryoDrgnProtPreprocess, CryoDrgnProtTrain,
-                         CryoDrgnProtAbinitio)
+from cryodrgn.protocols import (CryoDrgnProtPreprocess, CryoDrgnProtTrain,
+                                CryoDrgnProtAbinitio, CryoDrgnProtAnalyze)
 
 
-class TestCryoDrgn(BaseTest):
-    @classmethod
-    def runImportParticlesStar(cls, partStar, mag, samplingRate):
-        """ Import particles from Relion star file. """
-        print(magentaStr("\n==> Importing data - particles from star:"))
-        protImport = cls.newProtocol(ProtImportParticles,
-                                     importFrom=ProtImportParticles.IMPORT_FROM_RELION,
-                                     starFile=partStar,
-                                     magnification=mag,
-                                     samplingRate=samplingRate,
-                                     haveDataBeenPhaseFlipped=False)
-        cls.launchProtocol(protImport)
-        cls.assertIsNotNone(protImport.outputParticles,
-                            "SetOfParticles has not been produced.")
-
-        return protImport
-
+class TestWorkflowCryoDrgn(TestWorkflow):
     @classmethod
     def setUpClass(cls):
         setupTestProject(cls)
         cls.dataset = DataSet.getDataSet('relion_tutorial')
         cls.partFn = cls.dataset.getFile('import/refine3d_case2/relion_data.star')
-        cls.protImport = cls.runImportParticlesStar(cls.partFn, 50000, 3.54)
 
-    def runPreprocess(self, protLabel, particles, **kwargs):
+    def _importParticles(self, partStar, mag, samplingRate):
+        """ Import particles from Relion star file. """
+        print(magentaStr("\n==> Importing data - particles from star:"))
+        protImport = self.newProtocol(ProtImportParticles,
+                                      importFrom=ProtImportParticles.IMPORT_FROM_RELION,
+                                      starFile=partStar,
+                                      magnification=mag,
+                                      samplingRate=samplingRate,
+                                      haveDataBeenPhaseFlipped=False)
+
+        return self.launchProtocol(protImport)
+
+    def _runPreprocess(self, protImport, protLabel, **kwargs):
         print(magentaStr(f"\n==> Testing cryoDRGN - {protLabel}:"))
         protPreprocess = self.newProtocol(CryoDrgnProtPreprocess,
                                           objLabel=protLabel, **kwargs)
-        protPreprocess.inputParticles.set(particles)
+        protPreprocess.inputParticles.set(protImport.outputParticles)
+
         return self.launchProtocol(protPreprocess)
 
-    def checkPreprocessOutput(self, preprocessProt):
-        """ Do some check on the output of the preprocess. """
-        output = getattr(preprocessProt, 'outputCryoDrgnParticles', None)
-        self.assertIsNotNone(output)
+    def _runTraining(self, protPreprocess, **kwargs):
+        print(magentaStr("\n==> Testing cryoDRGN - training vae:"))
+        protTrain = self.newProtocol(CryoDrgnProtTrain, **kwargs)
+        protTrain.inputParticles.set(protPreprocess.Particles)
 
-        filename = output.filename.get()
-        poses = output.poses.get()
-        ctfs = output.ctfs.get()
+        return self.launchProtocol(protTrain)
 
-        for f in [filename, poses, ctfs]:
-            fn = os.path.join(self.proj.path, f)
-            self.assertTrue(os.path.exists(fn))
+    def _runAbinitio(self, protPreprocess, **kwargs):
+        print(magentaStr("\n==> Testing cryoDRGN - ab initio (het):"))
+        protAbinitio = self.newProtocol(CryoDrgnProtAbinitio, **kwargs)
+        protAbinitio.inputParticles.set(protPreprocess.Particles)
 
-        self.assertTrue(filename.endswith('.txt'))
+        return self.launchProtocol(protAbinitio)
 
-    def checkTrainingOutput(self, trainingProt):
-        output = getattr(trainingProt, 'Particles', None)
-        self.assertIsNotNone(output)
+    def _runAnalyze(self, protTrain, **kwargs):
+        print(magentaStr("\n==> Testing cryoDRGN - analyze results:"))
+        protAnalyze = self.newProtocol(CryoDrgnProtAnalyze, **kwargs)
+        protAnalyze.inputProt.set(protTrain)
 
-        output2 = getattr(trainingProt, 'Volumes', None)
-        self.assertIsNotNone(output2)
+        return self.launchProtocol(protAnalyze)
 
-    def testPreprocess(self):
-        parts = self.protImport.outputParticles
+    def testWorkflow(self):
+        protImport = self._importParticles(self.partFn, 50000, 3.54)
 
-        preprocess1 = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
-        self.checkPreprocessOutput(preprocess1)
+        protPreprocess1 = self._runPreprocess(protImport, "downsample scale=64", scaleSize=64)
+        self.assertIsNotNone(protPreprocess1._possibleOutputs.Particles.name)
 
-        preprocess2 = self.runPreprocess("preprocess scale=50 with chunks", parts,
-                                         scaleSize=50, chunk=200)
-        self.checkPreprocessOutput(preprocess2)
+        protPreprocess2 = self._runPreprocess(protImport, "downsample scale=48 with chunks",
+                                              scaleSize=48, chunk=200)
+        self.assertIsNotNone(protPreprocess2._possibleOutputs.Particles.name)
 
-    def testTraining(self):
-        parts = self.protImport.outputParticles
-        preprocess = self.runPreprocess("preprocess scale=64", parts, scaleSize=64)
+        protTraining = self._runTraining(protPreprocess2, numEpochs=3, zDim=2)
+        self.assertIsNotNone(protTraining._possibleOutputs.Particles.name)
 
-        print(magentaStr("\n==> Testing cryoDRGN - training:"))
-        protTrain = self.newProtocol(CryoDrgnProtTrain, numEpochs=3, zDim=2)
-        protTrain.inputParticles.set(preprocess.outputCryoDrgnParticles)
-        self.launchProtocol(protTrain)
-        self.checkTrainingOutput(protTrain)
+        protAbinitio = self._runAbinitio(protPreprocess2, numEpochs=2, zDim=2)
+        self.assertIsNotNone(protAbinitio._possibleOutputs.Particles.name)
 
-        print(magentaStr("\n==> Testing cryoDRGN - ab initio:"))
-        protAbinitio = self.newProtocol(CryoDrgnProtAbinitio, numEpochs=2, zDim=2)
-        protAbinitio.inputParticles.set(preprocess.outputCryoDrgnParticles)
-        self.launchProtocol(protAbinitio)
-        self.checkTrainingOutput(protAbinitio)
+        protAnalyze = self._runAnalyze(protTraining)
+        self.assertIsNotNone(protAnalyze._possibleOutputs.Volumes.name)

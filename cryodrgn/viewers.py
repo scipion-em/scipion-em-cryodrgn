@@ -25,23 +25,24 @@
 # **************************************************************************
 
 import os
+from glob import glob
 
 from pyworkflow.protocol.params import (LabelParam, EnumParam,
-                                        IntParam, BooleanParam)
+                                        BooleanParam, IntParam)
 from pyworkflow.protocol.executor import StepExecutor
 from pyworkflow.viewer import DESKTOP_TKINTER
 from pwem.viewers import ObjectView, ChimeraView, EmProtocolViewer
 
-from . import Plugin
-from .protocols import CryoDrgnProtTrain, CryoDrgnProtAbinitio
-from .constants import *
+from cryodrgn import Plugin
+from cryodrgn.protocols import CryoDrgnProtAnalyze
+from cryodrgn.constants import VOLUME_SLICES, VOLUME_CHIMERA
 
 
 class CryoDrgnViewer(EmProtocolViewer):
     """ Visualization of cryoDRGN results. """
 
     _environments = [DESKTOP_TKINTER]
-    _targets = [CryoDrgnProtTrain, CryoDrgnProtAbinitio]
+    _targets = [CryoDrgnProtAnalyze]
     _label = 'analyze results'
 
     def __init__(self, **kwargs):
@@ -49,48 +50,86 @@ class CryoDrgnViewer(EmProtocolViewer):
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
-        prot = self.protocol
-        self._epoch = prot.getLastEpoch()
-
-        def _out(f):
-            return os.path.join(prot.getOutputDir(f'analyze.{self._epoch}'), f)
-
-        self._updateFilenamesDict({
-            'output_notebook': _out('cryoDRGN_viz.ipynb'),
-            'output_hist': _out('z_hist.png'),
-            'output_dist': _out('z.png'),
-            'output_umap': _out('umap.png'),
-            'output_umaphex': _out('umap_hexbin.png'),
-            'output_pca': _out('z_pca.png'),
-            'output_pcahex': _out('z_pca_hexbin.png'),
-            'output_vol': _out('vol_%(id)03d.mrc'),
-            'output_volN': _out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
-        })
+        if self.protocol.hasMultLatentVars():
+            path = glob(self.protocol.getOutputDir("analyze.*/kmeans*"))[0]
+            out = lambda p: os.path.join(path, p)
+            self._updateFilenamesDict({
+                'umap': out('umap.png'),
+                'umaphex': out('umap_hex.png'),
+                'pca': out('z_pca.png'),
+                'pcahex': out('z_pca_hex.png'),
+                'pca_volN': out('../pc%(pc)d/vol_%(id)03d.mrc'),
+                'umap_pcN': out('../pc%(pc)d/umap.png'),
+                'umap_pcN_traversal': out('../pc%(pc)d/umap_traversal_connected.png'),
+                'graph_vol': out('../graph_traversal/vol_000.mrc'),
+                'notebook': out('../cryoDRGN_viz.ipynb')
+            })
+        else:
+            path = glob(self.protocol.getOutputDir("analyze.*"))[0]
+            out = lambda p: os.path.join(path, p)
+            self._updateFilenamesDict({
+                'simple_hist': out('z_hist.png'),
+                'simple_dist': out('z.png'),
+                'notebook': out('cryoDRGN_viz.ipynb')
+            })
+        if self.protocol.doLandscape:
+            path = glob(self.protocol.getOutputDir("landscape.*"))[0]
+            out = lambda p: os.path.join(path, "clustering_L2_%(algorithm)s_%(clusters)d", p)
+            self._updateFilenamesDict({
+                'landscape_vols_vae': out('umap.png'),
+                'landscape_vols_vae_annot': out('umap_annotated.png'),
+                'landscape_vols_count': out('state_volume_counts.png'),
+                'landscape_parts_count': out('state_particle_counts.png'),
+            })
 
     def _defineParams(self, form):
         form.addSection(label='Visualization')
-        form.addHidden('viewEpoch', EnumParam,
-                       choices=['last', 'selection'], default=EPOCH_LAST,
-                       display=EnumParam.DISPLAY_LIST,
-                       label="Epoch to analyze")
-        form.addHidden('epochNum', IntParam,
-                       condition='viewEpoch==%d' % EPOCH_SELECTION,
-                       label="Epoch number")
-
-        form.addParam('displayVol', EnumParam,
+        form.addParam('displayType', EnumParam,
                       choices=['slices', 'chimera'],
                       default=VOLUME_SLICES,
                       display=EnumParam.DISPLAY_HLIST,
-                      label='Display volume with',
-                      help='*slices*: display volumes as 2D slices along z axis.\n'
-                           '*chimera*: display volumes as surface with Chimera.')
+                      label='Display volumes with')
+        form.addParam('displayVolKmeans', LabelParam,
+                      label='Show K-means volumes',
+                      help="Cryodrgn analyze uses the k-means clustering algorithm to "
+                           "partition the latent space into k regions (by default k=20). "
+                           "A density map is generated from the center of each of these "
+                           "clusters. The kmeans20 volumes provide an initial set of "
+                           "representative density maps to visually inspect (and not "
+                           "necessarily to assign classes).")
         if self.protocol.hasMultLatentVars():
+            if self.protocol.doGraphTraversal:
+                form.addParam('displayVolGraph', LabelParam,
+                              label='Show graph traversal movie in ChimeraX')
+
             form.addParam('useHexBin', BooleanParam, default=False,
                           label="Use hexagonal bins for the plots?")
-            form.addParam('doShowPCA', LabelParam,
-                          label='Show PCA projection of latent space encodings')
-            form.addParam('doShowUMAP', LabelParam,
-                          label="Show UMAP visualization of latent space encodings")
+
+            group = form.addGroup('PCA & UMAP')
+            group.addParam('doShowPCA', LabelParam,
+                           label='Show PCA projection of latent space encodings')
+            group.addParam('pcNum', IntParam, default=1,
+                           label="Which PC to plot",
+                           help="The plots within the pcX subdirectories show the UMAP "
+                                "embedding colored by each particle's projected value "
+                                "along PCX. This helps give a sense of the layout of the "
+                                "latent space and how the UMAP embedding (e.g. a nonlinear "
+                                "8D → 2D embedding) is related to the PCA projection (a "
+                                "linear projection from 8D → 2D).")
+            group.addParam('displayVolPCA', LabelParam,
+                           label='Show PCX volumes',
+                           help="By default, the 10 volumes are generated at equally spaced "
+                                "points between the first and 99th percentile of the data "
+                                "distribution projected onto each principal component.")
+
+            group.addParam('doShowUMAP', LabelParam,
+                           label="Show UMAP visualization of latent space encodings")
+
+            group.addParam('doShowPcaToUmap', LabelParam,
+                           label="Show UMAP embeddings colored by PCX value")
+            group.addParam('doShowPcaToUmapTrav', LabelParam,
+                           label="Show UMAP connected traversal along PCX")
+
         else:
             form.addParam('doShowDistr', LabelParam,
                           label='Show latent coordinates distribution')
@@ -110,125 +149,129 @@ class CryoDrgnViewer(EmProtocolViewer):
         group.addParam('doShowNotebook', LabelParam,
                        label="Show Jupyter notebook")
 
+        if self.protocol.doLandscape:
+            form.addSection(label="Landscape analysis")
+            form.addParam('doShowVolsVae', LabelParam,
+                          label='Show volumes colored by cluster '
+                                'label in the VAE latent space')
+            form.addParam('doShowVolsVaeAnnot', LabelParam,
+                          label='Show volumes colored by cluster '
+                                'label in the VAE latent space (annotated)')
+            form.addParam('doShowPartsHist', LabelParam,
+                          label="Show particles histogram for each cluster")
+            form.addParam('doShowVolsHist', LabelParam,
+                          label="Show volumes histogram for each cluster")
+
     def _getVisualizeDict(self):
         self._createFilenameTemplates()
 
         visDict = {
-            'displayVol': self._showVolumes,
-            'doShowNotebook': self._showNotebook
+            'displayVolKmeans': lambda paramName: self.showVolumes(key='kmeans'),
+            'doShowNotebook': self.showNotebook
         }
 
         if self.protocol.hasMultLatentVars():
             visDict.update({
-                'doShowPCA': self._showPCA,
-                'doShowUMAP': self._showUMAP
+                'displayVolPCA': lambda paramName: self.showVolumes(key='pca'),
+                'doShowPCA': lambda paramName: self.showPlots(key='pca'),
+                'doShowUMAP': lambda paramName: self.showPlots(key='umap'),
+                'doShowPcaToUmap': lambda paramName: self.showPlots(key='umap_pcN'),
+                'doShowPcaToUmapTrav': lambda paramName: self.showPlots(key='umap_pcN_traversal')
             })
+            if self.protocol.doGraphTraversal:
+                visDict['displayVolGraph'] = lambda paramName: self.showVolumes(key='graph')
         else:
             visDict.update({
-                'doShowDistr': self._showDistribution,
-                'doShowHistogram': self._showHistogram
+                'doShowDistr': lambda paramName: self.showPlots(key='simple_dist'),
+                'doShowHistogram': lambda paramName: self.showPlots(key='simple_hist')
+            })
+
+        if self.protocol.doLandscape:
+            visDict.update({
+                'doShowVolsVae': lambda paramName: self.showPlots(key='landscape_vols_vae'),
+                'doShowVolsVaeAnnot': lambda paramName: self.showPlots(key='landscape_vols_vae_annot'),
+                'doShowPartsHist': lambda paramName: self.showPlots(key='landscape_vols_count'),
+                'doShowVolsHist': lambda paramName: self.showPlots(key='landscape_parts_count')
             })
 
         return visDict
 
-    def _showVolumes(self, paramName=None):
+    def showVolumes(self, key):
         try:
-            if self.displayVol == VOLUME_CHIMERA:
-                return self._showVolumesChimera()
-            elif self.displayVol == VOLUME_SLICES:
-                return self._showVolumeSlices()
+            if self.displayType == VOLUME_CHIMERA:
+                return self.showVolumesChimera(key)
+            elif self.displayType == VOLUME_SLICES:
+                return self.showVolumeSlices(key)
         except Exception as e:
             self.showError(str(e))
 
-    def _getVolumes(self):
-        """ Returns a list of volume names for chimerax. """
-        prot = self.protocol
-        vols = []
-        if prot.hasMultLatentVars():
-            fn = 'output_volN'
-            num = prot.ksamples.get()
-        else:
-            fn = 'output_vol'
-            num = 10
-
-        for volId in range(num):
-            if prot.hasMultLatentVars():
-                volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
-                                          id=volId)
-            else:
-                volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
-
-            if os.path.exists(volFn):
-                vols.append(volFn)
-            else:
-                raise FileNotFoundError("Volume %s does not exists. \n"
-                                        "Please select a valid epoch "
-                                        "number." % volFn)
-
-        return vols
-
-    def _showVolumesChimera(self):
+    def showVolumesChimera(self, key='kmeans'):
         """ Create a chimera script to visualize selected volumes. """
         prot = self.protocol
-        extra = prot._getExtraPath()
-        cmdFile = prot._getExtraPath('chimera_volumes.cxc')
+        if key == 'kmeans':
+            vols = list(prot.Volumes.getFiles())
+        elif key == 'pca':
+            vols = self._getVolumesNamesPCA()
+        elif key == 'graph':
+            vols = [self._getFileName('graph_vol')]
+        else:
+            raise KeyError("Unknown volume type")
 
-        with open(cmdFile, 'w+') as f:
-            for vol in self._getVolumes():
-                localVol = os.path.relpath(vol, extra)
-                if os.path.exists(vol):
-                    f.write("open %s\n" % localVol)
-            f.write('tile\n')
+        cmdFile = prot._getExtraPath('chimera_volumes.cxc')
+        localVol = os.path.relpath(vols[0], prot._getExtraPath())
+
+        if os.path.exists(vols[0]):
+            with open(cmdFile, 'w+') as f:
+                f.write(f"open {os.path.dirname(localVol)}/vol_*.mrc vseries true\n")
+                if key == 'graph':
+                    f.write("vol all color cornflowerblue\n"
+                            "mseries all\n")
+        else:
+            raise FileNotFoundError(f"File {vols[0]} not found!")
 
         view = ChimeraView(cmdFile)
 
         return [view]
 
-    def _showVolumeSlices(self):
+    def showVolumeSlices(self, key='kmeans'):
         """ Open a sqlite with all volumes selected for visualization. """
-        path = self.protocol._getExtraPath('volumes.sqlite')
+        if key == 'pca':
+            path = self.protocol._getExtraPath(f"volumes_pc{self.pcNum}.sqlite")
+            files = self._getVolumesNamesPCA()
+            samplingRate = self.protocol._getOutputSampling()
+            self.createVolumesSqlite(files, path, samplingRate)
+        elif key == 'kmeans':
+            path = self.protocol._getExtraPath('volumes.sqlite')
+        else:  # only chimerax allowed for graph volumes
+            return self.showVolumesChimera(key='graph')
+
         return [ObjectView(self._project, self.protocol.strId(), path)]
 
-    def _showPlot(self, fn, epoch):
-        import matplotlib.image as mpimg
-        import matplotlib.pyplot as plt
-        fn = self._getFileName(fn, epoch=epoch)
-        if os.path.exists(fn):
-            img = mpimg.imread(fn)
-            imgplot = plt.imshow(img)
-            plt.axis('off')
-            plt.show()
-            return [imgplot]
-        else:
-            self.showError('File %s not found! Have you run analysis?' % fn)
+    def showPlots(self, key):
+        kwargs = dict()
+        if key in ["pca", "umap"] and self.useHexBin:
+            key += "hex"
+        elif key.startswith('umap_pcN'):
+            kwargs['pc'] = self.pcNum
+        elif key.startswith('landscape'):
+            kwargs['algorithm'] = self.protocol.getEnumText('linkage')
+            kwargs['clusters'] = self.protocol.numClusters.get()
 
-    def _showHistogram(self, paramName=None):
-        self._showPlot('output_hist', epoch=self._epoch)
+        return [self._showPlot(key, **kwargs)]
 
-    def _showDistribution(self, paramName=None):
-        self._showPlot('output_dist', epoch=self._epoch)
-
-    def _showPCA(self, paramName=None):
-        fn = 'output_pcahex' if self.useHexBin else 'output_pca'
-        self._showPlot(fn, epoch=self._epoch)
-
-    def _showUMAP(self, paramName=None):
-        fn = 'output_umaphex' if self.useHexBin else 'output_umap'
-        self._showPlot(fn, epoch=self._epoch)
-
-    def _showNotebook(self, paramName=None):
+    def showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
 
         def _extraWork():
             program = Plugin.getProgram('').split()[:-1]  # remove cryodrgn command
-            fn = self._getFileName('output_notebook', epoch=self._epoch)
+            fn = self._getFileName('notebook')
 
             if self.serverMode:
                 args = '--no-browser --port 8888 '
             else:
-                args = '%s ' % os.path.basename(fn)
+                args = f"{os.path.basename(fn)}"
 
-            program.append('jupyter notebook %s' % args)
+            program.append(f"jupyter notebook {args}")
 
             if os.path.exists(fn):
                 fnDir = os.path.dirname(fn)
@@ -239,8 +282,36 @@ class CryoDrgnViewer(EmProtocolViewer):
                                      env=Plugin.getEnviron(),
                                      cwd=fnDir)
             else:
-                self.showError('Jupyter notebook not found! Have you run analysis?')
+                self.showError(f"Jupyter notebook {fn} not found!")
 
         from threading import Thread
         thread = Thread(target=_extraWork)
         thread.start()
+
+    # --------------------------- UTILS functions -----------------------------
+    def _getVolumesNamesPCA(self):
+        """ Get filenames for 10 output volumes along PCX. """
+        names = []
+        vols = [self._getFileName('pca_volN',
+                                  pc=self.pcNum,
+                                  id=i) for i in range(10)]
+        for fn in vols:
+            if os.path.exists(fn):
+                names.append(fn)
+            else:
+                raise FileNotFoundError(f"File {fn} not found!")
+
+        return names
+
+    def _showPlot(self, fn, **kwargs):
+        import matplotlib.image as mpimg
+        import matplotlib.pyplot as plt
+        fn = self._getFileName(fn, **kwargs)
+        if os.path.exists(fn):
+            img = mpimg.imread(fn)
+            imgplot = plt.imshow(img)
+            plt.axis('off')
+            plt.show()
+            return imgplot
+        else:
+            self.showError(f"File {fn} not found!")

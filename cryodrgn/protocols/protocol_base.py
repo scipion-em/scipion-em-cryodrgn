@@ -26,30 +26,31 @@
 # *
 # **************************************************************************
 
-import os
 import pickle
-import numpy as np
 import re
 from glob import glob
-from packaging import version
 from enum import Enum
 
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
+import pyworkflow.utils as pwutils
+from pyworkflow.plugin import Domain
+from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles
-import pwem.objects as emobj
+from pwem.objects import SetOfParticles, ParticleFlex, VolumeFlex
 
-from flexutils.objects import ParticleFlex, VolumeFlex
 from flexutils.protocols.protocol_base import ProtFlexBase
 import flexutils.constants as const
 
-from .. import Plugin
-from ..constants import EPOCH_LAST, EPOCH_SELECTION, WEIGHTS, CONFIG, Z_VALUES, V2_3_0
+from cryodrgn import Plugin
+from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES
+
+
+convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 
 class outputs(Enum):
-    Particles = emobj.SetOfParticles
-    Volumes = emobj.SetOfVolumes
+    Particles = SetOfParticles
 
 
 class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
@@ -58,25 +59,20 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
-        def out(*p):
-            return os.path.join(self.getOutputDir(f'analyze.{self._epoch}'), *p)
-
-        cryodrgn_version = version.parse(Plugin.getActiveVersion())
-
         myDict = {
-            'output_vol': out('vol_%(id)03d.mrc'),
-            'output_volN': out('kmeans%(ksamples)d/vol_%(id)03d.mrc'),
-            'z_values': out('z_values.txt'),
-            'z_valuesN': out('kmeans%(ksamples)d/z_values.txt'),
-            'weights': self.getOutputDir(f'weights.{self._epoch}.pkl'),
-            'config': self.getOutputDir('config.pkl') if cryodrgn_version < version.parse(V2_3_0)
-                      else self.getOutputDir('config.yaml')
+            'input_parts': self._getExtraPath('input_particles.star'),
+            'input_poses': self._getExtraPath('poses.pkl'),
+            'input_ctfs': self._getExtraPath('ctf.pkl'),
+            'z': self.getOutputDir('z.%(epoch)d.pkl'),
+            'z_final': self.getOutputDir('z.pkl'),
+            'weights': self.getOutputDir('weights.%(epoch)d.pkl'),
+            'weights_final': self.getOutputDir('weights.pkl'),
+            'config': self.getOutputDir('config.yaml')
         }
         self._updateFilenamesDict(myDict)
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
-        form.addHidden('doInvert', params.BooleanParam, default=True)
         form.addSection(label='Input')
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
@@ -86,11 +82,46 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
                             " You can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
 
+        form.addParam('doContinue', params.BooleanParam, default=False,
+                      label="Continue previous run?",
+                      help="Training will resume from the latest epoch.")
+
+        form.addParam('continueRun', params.PointerParam,
+                      condition='doContinue', important=True,
+                      pointerClass='CryoDrgnProtTrain, CryoDrgnProtAbinitio',
+                      label="Previous run", allowsNull=True)
+
         form.addParam('inputParticles', params.PointerParam,
-                      pointerClass="CryoDrgnParticles",
-                      label='CryoDrgn particles')
+                      pointerClass='SetOfParticles',
+                      condition='not doContinue',
+                      label="Input particles", important=True,
+                      help='Select a set of particles from a consensus C1 '
+                           '3D refinement.')
+
+        form.addParam('doInvert', params.BooleanParam, default=True,
+                      condition='not doContinue',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Are particles white?")
+
+        form.addParam('doWindow', params.BooleanParam, default=True,
+                      condition='not doContinue',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Apply circular mask?")
+
+        form.addParam('winSize', params.FloatParam, default=0.85,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      condition='doWindow and not doContinue',
+                      label="Window size",
+                      help="Circular windowing mask inner radius")
+
+        form.addParam('lazyLoad', params.BooleanParam, default=False,
+                      condition='not doContinue',
+                      label="Use lazy loading?",
+                      help="Lazy loading if full dataset is too large to "
+                           "fit in memory.")
 
         form.addParam('zDim', params.IntParam, default=8,
+                      condition='not doContinue',
                       validators=[params.Positive],
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
@@ -111,25 +142,6 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
 
         self._defineAdvancedParams(form)
 
-        form.addSection(label='Analysis')
-        form.addParam('viewEpoch', params.EnumParam,
-                      choices=['last', 'selection'], default=EPOCH_LAST,
-                      display=params.EnumParam.DISPLAY_LIST,
-                      label="Epoch to analyze")
-
-        form.addParam('epochNum', params.IntParam,
-                      condition='viewEpoch==%d' % EPOCH_SELECTION,
-                      label="Epoch number")
-
-        form.addParam('ksamples', params.IntParam, default=20,
-                      label='Number of K-means samples to generate',
-                      help="*cryodrgn analyze* uses the k-means clustering "
-                           "algorithm to partition the latent space into "
-                           "regions (by default k=20 regions), and generate a "
-                           "density map from the center of each of these "
-                           "regions. The goal is to provide a tractable number "
-                           "of representative density maps to visually inspect. ")
-
         form.addParallelSection(threads=16, mpi=0)
 
     def _defineAdvancedParams(self, form):
@@ -138,32 +150,55 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep(self.runTrainingStep)
-        if self.viewEpoch == EPOCH_LAST:
-            self._epoch = self.numEpochs.get() - 1
-        else:
-            self._epoch = self.epochNum.get()
         self._createFilenameTemplates()
-        self._insertFunctionStep(self.runAnalysisStep, self._epoch)
+
+        if self.doContinue:
+            self._insertFunctionStep(self.continueStep)
+        else:
+            self._insertFunctionStep(self.convertInputStep)
+
+        self._insertFunctionStep(self.runTrainingStep)
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self):
+        """ Create the input star, poses and ctf pkl files as expected by cryoDRGN. """
+        imgSet = self._getInputParticles()
+        alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
+        convert.writeSetOfParticles(imgSet,
+                                    self._getExtraPath('input_particles.star'),
+                                    outputDir=self._getExtraPath(),
+                                    alignType=alignType)
+
+        if self._inputHasAlign() and self.getClassName() != "CryoDrgnProtAbinitio":
+            self._runProgram('parse_pose_star', self._getParsePosesArgs())
+        self._runProgram('parse_ctf_star', self._getParseCtfArgs())
+
+    def continueStep(self):
+        """ Copy previous run outputs. """
+        prevRun = self.continueRun.get()
+
+        pwutils.cleanPath(self._getExtraPath())
+        self.info("Copying previous run results...")
+        pwutils.copyTree(prevRun._getExtraPath(), self._getExtraPath())
+
     def runTrainingStep(self):
         """ Should be implemented in subclasses. """
         raise NotImplementedError
 
-    def runAnalysisStep(self, epoch):
-        """ Run analysis step.
-        Args:
-            epoch: epoch number to be analyzed.
-        """
-        self._runProgram('analyze', self._getAnalyzeArgs(epoch))
-
     def createOutputStep(self):
-        """ Create the protocol outputs. """
-        # Creating a set of particles with z_values
-        outImgSet = self._createParticleSet()
+        """ Creating a set of particles with z_values. """
+        inputSet = self._getInputParticles()
+        zValues = iter(self._getParticlesZvalues())
+        outImgSet = self._createSetOfParticles()
+        outImgSet.copyInfo(inputSet)
+        outImgSet.copyItems(inputSet, updateItemCallback=self._setZValues,
+                            itemDataIterator=zValues)
+        setattr(outImgSet, WEIGHTS, pwobj.String(self._getFileName('weights_final')))
+        setattr(outImgSet, CONFIG, pwobj.String(self._getFileName('config')))
+
         self._defineOutputs(**{outputs.Particles.name: outImgSet})
+        self._defineSourceRelation(self._getInputParticles(pointer=True), outImgSet)
 
         # Creating a set of volumes with z_values
         samplingRate = self.inputParticles.get().getSamplingRate()
@@ -173,25 +208,36 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
-    def _validateBase(self):
+    def _validate(self):
         errors = []
+        if self.doContinue:
+            if not self.continueRun.hasValue():
+                errors.append("Select the input run to continue from!")
 
-        if self.viewEpoch == EPOCH_SELECTION:
-            ep = self.epochNum.get()
-            total = self.numEpochs.get()
-            if ep > total:
-                errors.append(f"You can analyse only epochs 1-{total}")
+            prevEpochs = self.continueRun.get().numEpochs.get()
+            if self.numEpochs <= prevEpochs:
+                errors.append(f"Number of epochs must be larger than {prevEpochs} "
+                              "that are already completed!")
 
         return errors
 
     # --------------------------- UTILS functions -----------------------------
-    def _getAnalyzeArgs(self, epoch):
-        return [
-            self.getOutputDir(),
-            f"{epoch}",
-            '--Apix %0.3f' % self.inputParticles.get().getSamplingRate(),
-            '--ksample %d' % self.ksamples,
+    def _getParsePosesArgs(self):
+        args = [
+            self._getFileName('input_parts'),
+            f"-o {self._getFileName('input_poses')}"
         ]
+
+        return args
+
+    def _getParseCtfArgs(self):
+        args = [
+            self._getFileName('input_parts'),
+            f"-o {self._getFileName('input_ctfs')}",
+            "--ps 0"  # required due to cryodrgn parsing bug
+        ]
+
+        return args
 
     def _runProgram(self, program, args):
         gpus = ','.join(str(i) for i in self.getGpuList())
@@ -233,39 +279,18 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         Read from z.pkl file the particles z_values
         :return: a numpy array with the particles z_values
         """
-        zEpochFile = self.getEpochZFile(self._epoch)
+        zEpochFile = self._getFileName("z_final")
         with open(zEpochFile, 'rb') as f:
             zValues = pickle.load(f)
+
         return zValues
 
-    def _createParticleSet(self):
-        """
-        Create a set of particles with the associated z_values
-        :return: a set of particles
-        """
-        cryoDRGNParticles = self.inputParticles.get().ptcls.get()
-        zValues = self._getParticlesZvalues()
-        outImgSet = self._createSetOfParticlesFlex(progName=const.CRYODRGN)
-        outImgSet.copyInfo(cryoDRGNParticles)
-        outImgSet.setHasCTF(cryoDRGNParticles.hasCTF())
-
-        idx = 0
-        for img in cryoDRGNParticles.iterItems():
-            outImg = ParticleFlex(progName=const.CRYODRGN)
-            outImg.copyInfo(img)
-
-            # We assume that each row "i" of z_values corresponds to each
-            # particle with ID "i"
-            outImg.setZFlex(zValues[idx])
-
-            outImgSet.append(outImg)
-
-            idx += 1
-
-        setattr(outImgSet.getFlexInfo(), WEIGHTS, pwobj.String(self._getFileName('weights')))
-        setattr(outImgSet.getFlexInfo(), CONFIG, pwobj.String(self._getFileName('config')))
-
-        return outImgSet
+    def _setZValues(self, item, row=None):
+        vector = pwobj.CsvList()
+        # We assume that each row "i" of z_values corresponds to each
+        # particle with ID "i"
+        vector._convertValue(list(row))
+        setattr(item, Z_VALUES, vector)
 
     def _getVolumeZvalues(self, zValueFile):
         """
@@ -306,24 +331,31 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         return volSet
 
     def getOutputDir(self, *paths):
-        return os.path.join(self._getPath('output'), *paths)
+        return self._getExtraPath("output", *paths)
 
-    def getEpochZFile(self, epoch):
-        return self.getOutputDir('z.%d.pkl' % epoch)
-
-    def getLastEpoch(self):
+    def _getLastEpoch(self):
         """ Return the last iteration number. """
-        natsort = lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split('(\d+)', s)]
         epoch = None
-        self._epochRegex = re.compile(r'z.(\d+).pkl')
-        files = sorted(glob(self.getEpochZFile(0).replace('0', '*')), key=natsort)
+        epochRegex = re.compile(r'weights.(\d).pkl')
+        files = sorted(glob(self._getFileName("weights", epoch=0).replace('0', '*')))
         if files:
             f = files[-1]
-            s = self._epochRegex.search(f)
+            s = epochRegex.search(f)
             if s:
                 epoch = int(s.group(1))  # group 1 is a digit iteration number
 
         return epoch
 
-    def hasMultLatentVars(self):
-        return self.zDim > 1
+    def _canContinue(self):
+        return self._getLastEpoch() is not None
+
+    def _getInputParticles(self, pointer=False):
+        if self.doContinue and self.continueRun.hasValue():
+            parts = self.continueRun.get().inputParticles
+        else:
+            parts = self.inputParticles
+
+        return parts if pointer else parts.get()
+
+    def _inputHasAlign(self):
+        return self._getInputParticles().hasAlignmentProj()
