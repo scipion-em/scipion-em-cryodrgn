@@ -149,7 +149,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         group.addParam('doShowNotebook', LabelParam,
                        label="Show Jupyter notebook")
 
-        if self.protocol.doLandscape:
+        if self.protocol.doLandscape and self.protocol.hasMultLatentVars():
             form.addSection(label="Landscape analysis")
             form.addParam('doShowVolsVae', LabelParam,
                           label='Show volumes colored by cluster '
@@ -257,7 +257,7 @@ class CryoDrgnViewer(EmProtocolViewer):
             kwargs['algorithm'] = self.protocol.getEnumText('linkage')
             kwargs['clusters'] = self.protocol.numClusters.get()
 
-        return [self._showPlot(key, **kwargs)]
+        return self._showPlot(key, **kwargs)
 
     def showNotebook(self, paramName=None):
         """ Open jupyter notebook with results in a browser. """
@@ -312,6 +312,5 @@ class CryoDrgnViewer(EmProtocolViewer):
             imgplot = plt.imshow(img)
             plt.axis('off')
             plt.show()
-            return imgplot
         else:
             self.showError(f"File {fn} not found!")
