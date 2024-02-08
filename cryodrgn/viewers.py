@@ -64,6 +64,15 @@ class CryoDrgnViewer(EmProtocolViewer):
                 'graph_vol': out('../graph_traversal/vol_000.mrc'),
                 'notebook': out('../cryoDRGN_viz.ipynb')
             })
+            if self.protocol.doLandscape:
+                path = glob(self.protocol.getOutputDir("landscape.*"))[0]
+                out = lambda p: os.path.join(path, "clustering_L2_%(algorithm)s_%(clusters)d", p)
+                self._updateFilenamesDict({
+                    'landscape_vols_vae': out('umap.png'),
+                    'landscape_vols_vae_annot': out('umap_annotated.png'),
+                    'landscape_vols_count': out('state_volume_counts.png'),
+                    'landscape_parts_count': out('state_particle_counts.png'),
+                })
         else:
             path = glob(self.protocol.getOutputDir("analyze.*"))[0]
             out = lambda p: os.path.join(path, p)
@@ -71,15 +80,6 @@ class CryoDrgnViewer(EmProtocolViewer):
                 'simple_hist': out('z_hist.png'),
                 'simple_dist': out('z.png'),
                 'notebook': out('cryoDRGN_viz.ipynb')
-            })
-        if self.protocol.doLandscape:
-            path = glob(self.protocol.getOutputDir("landscape.*"))[0]
-            out = lambda p: os.path.join(path, "clustering_L2_%(algorithm)s_%(clusters)d", p)
-            self._updateFilenamesDict({
-                'landscape_vols_vae': out('umap.png'),
-                'landscape_vols_vae_annot': out('umap_annotated.png'),
-                'landscape_vols_count': out('state_volume_counts.png'),
-                'landscape_parts_count': out('state_particle_counts.png'),
             })
 
     def _defineParams(self, form):
