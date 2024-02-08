@@ -36,11 +36,10 @@ import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
-from pwem.protocols import ProtProcessParticles
-from pwem.objects import SetOfParticles, ParticleFlex, VolumeFlex
+from pwem.protocols import ProtProcessParticles, ProtFlexBase
+from pwem.objects import SetOfParticles, ParticleFlex
 
-from flexutils.protocols.protocol_base import ProtFlexBase
-import flexutils.constants as const
+import cryodrgn.constants as const
 
 from cryodrgn import Plugin
 from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES
@@ -190,22 +189,25 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         """ Creating a set of particles with z_values. """
         inputSet = self._getInputParticles()
         zValues = iter(self._getParticlesZvalues())
-        outImgSet = self._createSetOfParticles()
+        outImgSet = self._createSetOfParticlesFlex(progName=const.CRYODRGN)
         outImgSet.copyInfo(inputSet)
-        outImgSet.copyItems(inputSet, updateItemCallback=self._setZValues,
-                            itemDataIterator=zValues)
-        setattr(outImgSet, WEIGHTS, pwobj.String(self._getFileName('weights_final')))
-        setattr(outImgSet, CONFIG, pwobj.String(self._getFileName('config')))
+        outImgSet.setHasCTF(inputSet.hasCTF())
+        outImgSet.getFlexInfo().setProgName(const.CRYODRGN)
+
+        for particle, zValue in zip(inputSet.iterItems(), zValues):
+            outParticle = ParticleFlex(progName=const.CRYODRGN)
+            outParticle.copyInfo(particle)
+            outParticle.getFlexInfo().setProgName(const.CRYODRGN)
+
+            outParticle.setZFlex(list(zValue))
+
+            outImgSet.append(outParticle)
+
+        outImgSet.getFlexInfo().setAttr(WEIGHTS, self._getFileName('weights_final'))
+        outImgSet.getFlexInfo().setAttr(CONFIG, self._getFileName('config'))
 
         self._defineOutputs(**{outputs.Particles.name: outImgSet})
         self._defineSourceRelation(self._getInputParticles(pointer=True), outImgSet)
-
-        # Creating a set of volumes with z_values
-        samplingRate = self.inputParticles.get().getSamplingRate()
-        files, zValues = self._getVolumes()
-        setOfVolumes = self._createVolumeSet(files, zValues, samplingRate)
-        self._defineOutputs(**{outputs.Volumes.name: setOfVolumes})
-        self._defineSourceRelation(self.inputParticles.get(), setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -243,37 +245,6 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         gpus = ','.join(str(i) for i in self.getGpuList())
         self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
 
-    def _getVolumes(self):
-        """ Returns a list of volume names and their zValues. """
-        vols = []
-        if self.hasMultLatentVars():
-            fn = 'output_volN'
-            num = self.ksamples.get()
-            zValue = 'z_valuesN'
-            zValues = self._getVolumeZvalues(self._getFileName(zValue,
-                                                               ksamples=num))
-        else:
-            fn = 'output_vol'
-            num = 10
-            zValue = 'z_values'
-            zValues = self._getVolumeZvalues(self._getFileName(zValue))
-
-        for volId in range(num):
-            if self.hasMultLatentVars():
-                volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
-                                          id=volId)
-            else:
-                volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
-
-            if os.path.exists(volFn):
-                vols.append(volFn)
-            else:
-                raise FileNotFoundError("Volume %s does not exists. \n"
-                                        "Please select a valid epoch "
-                                        "number." % volFn)
-
-        return vols, zValues
-
     def _getParticlesZvalues(self):
         """
         Read from z.pkl file the particles z_values
@@ -286,49 +257,8 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         return zValues
 
     def _setZValues(self, item, row=None):
-        vector = pwobj.CsvList()
-        # We assume that each row "i" of z_values corresponds to each
-        # particle with ID "i"
-        vector._convertValue(list(row))
-        setattr(item, Z_VALUES, vector)
-
-    def _getVolumeZvalues(self, zValueFile):
-        """
-        Read from z_values.txt file the volume z_values
-        :return: a list with the volumes z_values
-        """
-        return np.loadtxt(zValueFile, dtype=float).tolist()
-
-    def _createVolumeSet(self, files, zValues, samplingRate,
-                         updateItemCallback=None):
-        """
-        Create a set of volume with the associated z_values
-        :param files: list of the volumes path
-        :param zValues: list with the volumes z_values
-        :param path: output path
-        :param samplingRate: volumes sampling rate
-        :return: a set of volumes
-        """
-        volSet = self._createSetOfVolumesFlex(progName=const.CRYODRGN)
-        volSet.setSamplingRate(samplingRate)
-        volId = 0
-        if type(zValues[0]) is not list:
-            # csvList requires each item as a list
-            zValues = [[i] for i in zValues]
-
-        for volFn in files:
-            vol = VolumeFlex(progName=const.CRYODRGN)
-            vol.setFileName(volFn)
-            # We assume that each row "i" of z_values corresponds to each
-            # volumes with ID "i"
-            volZValues = zValues[volId]
-            vol.setZFlex(volZValues)
-            if updateItemCallback:
-                updateItemCallback(vol)
-            volSet.append(vol)
-            volId += 1
-
-        return volSet
+        item.getFlexInfo().setProgName(const.ZERNIKE3D)
+        item.setZFlex(list(row))
 
     def getOutputDir(self, *paths):
         return self._getExtraPath("output", *paths)
