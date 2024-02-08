@@ -59,3 +59,6 @@ AB_INITIO_HETERO = 1
 # Linkage for agglomerative clustering
 CLUSTER_AVERAGE = 0
 CLUSTER_WARD = 1
+
+# FlexHub program
+CRYODRGN = "CryoDRGN"
