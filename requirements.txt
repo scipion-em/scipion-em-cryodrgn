@@ -1,2 +1,1 @@
-scipion-em
-scipion-em-flexutils
+scipion-em >= 3.5.0
