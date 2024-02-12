@@ -24,4 +24,4 @@
 # *
 # **************************************************************************
 
-from .test_protocols_cryodrgn import TestCryoDrgn
+from .test_protocols_cryodrgn import TestWorkflowCryoDrgn

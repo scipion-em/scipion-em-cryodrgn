@@ -23,36 +23,39 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from enum import Enum
 
-import pyworkflow.utils as pwutils
-from pyworkflow.constants import NEW
+from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
+from pwem.objects import SetOfParticles, Volume
 
-from .. import Plugin
-from ..constants import V2_1_0, AB_INITIO_HOMO, AB_INITIO_HETERO
-from .protocol_base import CryoDrgnProtBase
+from cryodrgn import Plugin
+from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO, V3_1_0
+from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
+
+
+class outputs(Enum):
+    Particles = SetOfParticles
+    Volumes = Volume
 
 
 class CryoDrgnProtAbinitio(CryoDrgnProtBase):
     """
-    Protocol to run ab-initio reconstruction with cryoDRGN2 neural network.
+    Protocol to run ab-initio reconstruction with cryoDRGN neural network.
     """
     _label = 'training ab initio'
-    _devStatus = NEW
-
-    @classmethod
-    def isDisabled(cls):
-        return not Plugin.versionGE(V2_1_0)
+    _devStatus = PROD
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         CryoDrgnProtBase._defineParams(self, form)
-        form.getParam('zDim').default = pwobj.Integer(1)
         form.getParam('numEpochs').default = pwobj.Integer(30)
+        form.getParam('zDim').default = pwobj.Integer(8)
 
     def _defineAdvancedParams(self, form):
         form.addParam('protType', params.EnumParam,
+                      condition='not doContinue',
                       choices=['homogeneous', 'heterogeneous'],
                       default=AB_INITIO_HETERO,
                       display=params.EnumParam.DISPLAY_HLIST,
@@ -60,41 +63,58 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
 
         form.addSection(label='Advanced')
         form.addParam('searchRange', params.IntParam, default=10,
+                      condition='not doContinue',
                       label='Translational search range (px)')
         form.addParam('psFreq', params.IntParam, default=5,
+                      condition='not doContinue',
                       label='Update poses every N epochs')
 
         form.addParam('extraParams', params.StringParam, default="",
                       label="Extra params",
                       help="Here you can provide all extra command-line "
-                           "parameters. See *cryodrgn abinit_homo -h* for help.")
+                           "parameters. See *cryodrgn abinit_het -h* for help.")
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
-        # Create output folder
-        pwutils.cleanPath(self.getOutputDir())
-        pwutils.makePath(self.getOutputDir())
-
-        # Call cryoDRGN with the appropriate parameters
-        protType = self.protType.get()
+        run = self.continueRun.get() if self.doContinue else self
+        protType = run.protType.get()
         program = "homo" if protType == AB_INITIO_HOMO else "het"
         self._runProgram("abinit_" + program, self._getTrainingArgs(protType))
 
+    def createOutputStep(self):
+        """ Creating a set of particles with z_values. """
+        run = self.continueRun.get() if self.doContinue else self
+        protType = run.protType.get()
+        if protType == AB_INITIO_HETERO:
+            CryoDrgnProtBase.createOutputStep(self)
+        else:
+            # Creating output volume
+            inputSet = self._getInputParticles()
+            vol = Volume()
+            vol.setFileName(self.getOutputDir("reconstruct.mrc"))
+            vol.setSamplingRate(inputSet.getSamplingRate())
+
+            self._defineOutputs(**{outputs.Volumes.name: vol})
+            self._defineSourceRelation(self._getInputParticles(pointer=True), vol)
+
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
-        summary = ["Training ab initio for %d epochs." % self.numEpochs]
+        run = self.continueRun.get() if self.doContinue else self
+        protType = run.getEnumText("protType")
+        summary = [f"Training ab initio ({protType}) for {self.numEpochs} epochs."]
 
         return summary
 
     def _validate(self):
-        errors = CryoDrgnProtBase._validateBase(self)
+        errors = super()._validate()
 
-        if self.zDim > 1 and self.protType.get() == AB_INITIO_HOMO:
-            errors.append("Latent variable must be 1 for "
-                          "homogeneous reconstruction")
-        if self.zDim == 1 and self.protType.get() == AB_INITIO_HETERO:
-            errors.append("Latent variable must be >1 for "
-                          "heterogeneous reconstruction")
+        if not self.doContinue:
+            if self.zDim > 1 and self.protType.get() == AB_INITIO_HOMO:
+                errors.append("Latent variable must be 1 for "
+                              "homogeneous reconstruction")
+            if self.zDim == 1 and self.protType.get() == AB_INITIO_HETERO:
+                errors.append("Latent variable must be >1 for "
+                              "heterogeneous reconstruction")
 
         return errors
 
@@ -103,25 +123,28 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
 
     # --------------------------- UTILS functions -----------------------------
     def _getTrainingArgs(self, protType=AB_INITIO_HOMO):
-        parts = self.inputParticles.get()
+        run = self.continueRun.get() if self.doContinue else self
 
         args = [
-            parts.filename.get(),
-            '--ctf %s' % parts.ctfs,
-            '-o %s ' % self.getOutputDir(),
-            '-n %d' % self.numEpochs,
-            '--t-extent %d' % self.searchRange,
-            '--ps-freq %d' % self.psFreq,
+            self._getFileName('input_parts'),
+            f"--ctf {self._getFileName('input_ctfs')}",
+            f"-o {self.getOutputDir()}",
+            f"-n {self.numEpochs}",
+            f"--t-extent {run.searchRange}",
+            f"--ps-freq {run.psFreq}",
+            "--load latest" if self.doContinue else ""
         ]
+
+        if Plugin.versionGE(V3_1_0):
+            args.append(f"--datadir {self._getExtraPath('input')}")
 
         if protType == AB_INITIO_HETERO:
             args.extend([
-                '--zdim %d' % self.zDim,
-                '--preprocessed',
-                '--max-threads %d' % self.numberOfThreads,
+                f"--zdim {run.zDim}",
+                f"--max-threads {self.numberOfThreads}",
             ])
 
-            if len(self.getGpuList()) > 1:
+            if len(self.getGpuList()) > 1:  # only for hetero
                 args.append('--multigpu')
 
         if self.extraParams.hasValue():
