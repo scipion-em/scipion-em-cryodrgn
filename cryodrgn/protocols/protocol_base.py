@@ -39,10 +39,8 @@ from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 from pwem.objects import SetOfParticles, ParticleFlex
 
-import cryodrgn.constants as const
-
 from cryodrgn import Plugin
-from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES
+from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES, CRYODRGN
 
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
@@ -189,15 +187,15 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         """ Creating a set of particles with z_values. """
         inputSet = self._getInputParticles()
         zValues = iter(self._getParticlesZvalues())
-        outImgSet = self._createSetOfParticlesFlex(progName=const.CRYODRGN)
+        outImgSet = self._createSetOfParticlesFlex(progName=CRYODRGN)
         outImgSet.copyInfo(inputSet)
         outImgSet.setHasCTF(inputSet.hasCTF())
-        outImgSet.getFlexInfo().setProgName(const.CRYODRGN)
+        outImgSet.getFlexInfo().setProgName(CRYODRGN)
 
-        for particle, zValue in zip(inputSet.iterItems(), zValues):
-            outParticle = ParticleFlex(progName=const.CRYODRGN)
+        for particle, zValue in zip(inputSet, zValues):
+            outParticle = ParticleFlex(progName=CRYODRGN)
             outParticle.copyInfo(particle)
-            outParticle.getFlexInfo().setProgName(const.CRYODRGN)
+            outParticle.getFlexInfo().setProgName(CRYODRGN)
 
             outParticle.setZFlex(list(zValue))
 
@@ -257,7 +255,7 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         return zValues
 
     def _setZValues(self, item, row=None):
-        item.getFlexInfo().setProgName(const.ZERNIKE3D)
+        item.getFlexInfo().setProgName(CRYODRGN)
         item.setZFlex(list(row))
 
     def getOutputDir(self, *paths):
