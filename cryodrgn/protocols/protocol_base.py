@@ -36,11 +36,11 @@ import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
-from pwem.protocols import ProtProcessParticles
-from pwem.objects import SetOfParticles
+from pwem.protocols import ProtProcessParticles, ProtFlexBase
+from pwem.objects import SetOfParticles, ParticleFlex
 
 from cryodrgn import Plugin
-from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES
+from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES, CRYODRGN
 
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
@@ -50,7 +50,7 @@ class outputs(Enum):
     Particles = SetOfParticles
 
 
-class CryoDrgnProtBase(ProtProcessParticles):
+class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
     _label = None
     _possibleOutputs = outputs
 
@@ -187,12 +187,22 @@ class CryoDrgnProtBase(ProtProcessParticles):
         """ Creating a set of particles with z_values. """
         inputSet = self._getInputParticles()
         zValues = iter(self._getParticlesZvalues())
-        outImgSet = self._createSetOfParticles()
+        outImgSet = self._createSetOfParticlesFlex(progName=CRYODRGN)
         outImgSet.copyInfo(inputSet)
-        outImgSet.copyItems(inputSet, updateItemCallback=self._setZValues,
-                            itemDataIterator=zValues)
-        setattr(outImgSet, WEIGHTS, pwobj.String(self._getFileName('weights_final')))
-        setattr(outImgSet, CONFIG, pwobj.String(self._getFileName('config')))
+        outImgSet.setHasCTF(inputSet.hasCTF())
+        outImgSet.getFlexInfo().setProgName(CRYODRGN)
+
+        for particle, zValue in zip(inputSet, zValues):
+            outParticle = ParticleFlex(progName=CRYODRGN)
+            outParticle.copyInfo(particle)
+            outParticle.getFlexInfo().setProgName(CRYODRGN)
+
+            outParticle.setZFlex(list(zValue))
+
+            outImgSet.append(outParticle)
+
+        outImgSet.getFlexInfo().setAttr(WEIGHTS, self._getFileName('weights_final'))
+        outImgSet.getFlexInfo().setAttr(CONFIG, self._getFileName('config'))
 
         self._defineOutputs(**{outputs.Particles.name: outImgSet})
         self._defineSourceRelation(self._getInputParticles(pointer=True), outImgSet)
@@ -245,11 +255,8 @@ class CryoDrgnProtBase(ProtProcessParticles):
         return zValues
 
     def _setZValues(self, item, row=None):
-        vector = pwobj.CsvList()
-        # We assume that each row "i" of z_values corresponds to each
-        # particle with ID "i"
-        vector._convertValue(list(row))
-        setattr(item, Z_VALUES, vector)
+        item.getFlexInfo().setProgName(CRYODRGN)
+        item.setZFlex(list(row))
 
     def getOutputDir(self, *paths):
         return self._getExtraPath("output", *paths)
