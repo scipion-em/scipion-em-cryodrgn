@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 from pyworkflow.utils.process import runJob
-from . import Plugin
+from cryodrgn import Plugin
 
 
 def generateVolumes(zValues, weights, config, outdir, apix=1, flip=False,
@@ -17,20 +17,19 @@ def generateVolumes(zValues, weights, config, outdir, apix=1, flip=False,
            env=Plugin.getEnviron())
 
 
-def _getEvalVolArgs(zvalues, weights, config, outdir, apix,
-                    flip, downsample, invert):
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
-
+def _getEvalVolArgs(zvalues, weights, config, outdir, apix, flip,
+                    downsample, invert):
+    os.makedirs(outdir, exist_ok=True)
     np.savetxt(f'{outdir}/zfile.txt', zvalues)
     zfilePath = os.path.abspath(os.path.join(outdir, 'zfile.txt'))
 
-    return [weights,
-            '--config %s' % config,
-            '--zfile %s' % zfilePath,
-            '-o %s' % outdir,
-            '--Apix %s' % apix,
-            '--flip' if flip else '',
-            ('-d %d' % downsample) if downsample is not None else '',
-            '--invert' if invert else ''
-            ]
+    return [
+        weights,
+        f"--config {config}",
+        f"--zfile {zfilePath}",
+        f"-o {outdir}",
+        f"--Apix {apix}",
+        "--flip" if flip else "",
+        f"-d {downsample}" if downsample is not None else "",
+        "--invert" if invert else ""
+    ]

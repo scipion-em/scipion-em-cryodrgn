@@ -24,49 +24,30 @@
 # *
 # **************************************************************************
 
-import os
 from enum import Enum
+import numpy as np
 
-import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles
+from pwem.objects import SetOfParticles
 
-from .. import Plugin
-from ..objects import CryoDrgnParticles
+from cryodrgn import Plugin
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 
 class outputs(Enum):
-    outputCryoDrgnParticles = CryoDrgnParticles
+    Particles = SetOfParticles
 
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
-    """ Protocol to downsample a particle stack and prepare alignment/CTF parameters.
-    """
-    _label = 'preprocess'
+    """ Protocol to downsample a particle stack. """
+    _label = 'preprocess particles'
     _devStatus = PROD
     _possibleOutputs = outputs
-
-    def _createFilenameTemplates(self):
-        """ Centralize how files are called. """
-
-        def out(*p):
-            return os.path.join(self._getPath('output_particles'), *p)
-
-        myDict = {
-            'input_parts': self._getExtraPath('input_particles.star'),
-            'output_folder': out(),
-            'output_parts': out('particles.%d.mrcs' % self._getBoxSize()),
-            'output_txt': out('particles.%d.ft.txt' % self._getBoxSize()),
-            'output_poses': out('poses.pkl'),
-            'output_ctfs': out('ctfs.pkl'),
-        }
-
-        self._updateFilenamesDict(myDict)
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
@@ -74,7 +55,6 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         form.addSection(label='Input')
         form.addParam('inputParticles', params.PointerParam,
                       pointerClass='SetOfParticles',
-                      pointerCondition='hasCTF',
                       label="Input particles", important=True,
                       help='Select a set of particles from a consensus C1 '
                            '3D refinement.')
@@ -88,78 +68,51 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
                       label='New box size (px)',
                       help='New box size in pixels, must be even.')
 
-        form.addParam('doWindow', params.BooleanParam, default=True,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label="Apply circular mask?")
-
-        form.addParam('winSize', params.FloatParam, default=0.85,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      condition='doWindow',
-                      label="Window size",
-                      help="Circular windowing mask inner radius")
-
         form.addParam('chunk', params.IntParam, default=0,
                       label='Split in chunks',
                       help='Chunk size (in # of images) to split '
                            'particle stack when saving.')
 
-        form.addParam('doInvert', params.BooleanParam, default=True,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label="Are particles white?")
-
         form.addParallelSection(threads=16, mpi=0)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        self._createFilenameTemplates()
         self._insertFunctionStep(self.convertInputStep)
         self._insertFunctionStep(self.runDownSampleStep)
-        self._insertFunctionStep(self.runParseMdStep)
         self._insertFunctionStep(self.createOutputStep)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
         """ Create a star file as expected by cryoDRGN."""
-        outputFolder = self._getFileName('output_folder')
-        pwutils.cleanPath(outputFolder)
-        pwutils.makePath(outputFolder)
-
-        imgSet = self.inputParticles.get()
+        imgSet = self._getInputParticles()
         # Create links to binary files and write the relion .star file
         alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
-        convert.writeSetOfParticles(
-            imgSet, self._getFileName('input_parts'),
-            outputDir=self._getExtraPath(), alignType=alignType)
+        convert.writeSetOfParticles(imgSet,
+                                    self._getTmpPath('input_particles.star'),
+                                    outputDir=self._getTmpPath(),
+                                    alignType=alignType)
 
     def runDownSampleStep(self):
-        self._runProgram('preprocess', self._getPreprocessArgs())
-
-    def runParseMdStep(self):
-        if self._inputHasAlign():
-            self._runProgram('parse_pose_star', self._getParsePosesArgs())
-        self._runProgram('parse_ctf_star', self._getParseCtfArgs())
+        self._runProgram('downsample', self._getArgs())
 
     def createOutputStep(self):
-        poses = self._getFileName('output_poses') if self._inputHasAlign() else None
-        output = CryoDrgnParticles(filename=self._getFileName('output_txt'),
-                                   poses=poses,
-                                   ctfs=self._getFileName('output_ctfs'),
-                                   dim=self._getBoxSize() + 1,
-                                   samplingRate=self._getSamplingRate())
-        output.ptcls = self.inputParticles.clone()
+        inputSet = self._getInputParticles()
+        imgSet = self._createSetOfParticles()
+        imgSet.copyInfo(inputSet)
 
-        self._defineOutputs(**{outputs.outputCryoDrgnParticles.name: output})
-        self._defineSourceRelation(self.inputParticles, output)
+        newSampling = self._getSamplingRate()
+        imgSet.setSamplingRate(newSampling)
+
+        itemIter = self._getOutputFn(inputSet.getSize(), self.chunk.get())
+        imgSet.copyItems(inputSet,
+                         itemDataIterator=itemIter,
+                         updateItemCallback=self._updateLocation)
+        self._defineOutputs(**{outputs.Particles.name: imgSet})
+        self._defineTransformRelation(self.inputParticles, imgSet)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
         summary = []
-        self._createFilenameTemplates()
-        if not self.isFinished():
-            summary.append("Output not ready")
-        else:
-            poses = "poses and" if self._inputHasAlign() else ""
-            summary.append(f"Created {poses} ctf files for cryoDRGN.")
 
         return summary
 
@@ -181,7 +134,7 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
 
         if not self._inputHasAlign():
             warnings.append("Input particles have no alignment, you will only "
-                            "be able to use the output for ab initio training!")
+                            "be able to use the output for *ab initio* training!")
 
         if self._getBoxSize() % 8 != 0:
             warnings.append("CryoDRGN mixed-precision (AMP) training will "
@@ -191,32 +144,18 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
         return warnings
 
     # --------------------------- UTILS functions -----------------------------
-    def _getPreprocessArgs(self):
-        args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_parts'),
-                '-D %d' % self._getBoxSize(),
-                '--window-r %0.2f' % self.winSize if self.doWindow else '--no-window',
-                '--max-threads %d ' % self.numberOfThreads
-                ]
-
-        if not self.doInvert:
-            args.append('--uninvert-data')
+    def _getArgs(self):
+        newBox = self._getBoxSize()
+        args = [
+            self._getTmpPath('input_particles.star'),
+            f"-o {self._getExtraPath('particles.%d.mrcs' % newBox)}",
+            f"--datadir {self._getTmpPath('input')}",
+            f"-D {newBox}",
+            f"--max-threads {self.numberOfThreads}"
+        ]
 
         if self.chunk > 0:
-            args.append('--chunk %d ' % self.chunk)
-
-        return args
-
-    def _getParsePosesArgs(self):
-        args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_poses')]
-
-        return args
-
-    def _getParseCtfArgs(self):
-        args = ['%s ' % self._getFileName('input_parts'),
-                '-o %s ' % self._getFileName('output_ctfs'),
-                '--ps 0']  # required due to cryodrgn parsing bug
+            args.append(f"--chunk {self.chunk}")
 
         return args
 
@@ -232,15 +171,43 @@ class CryoDrgnProtPreprocess(ProtProcessParticles):
     def _getSamplingRate(self):
         inputSet = self._getInputParticles()
         oldSampling = inputSet.getSamplingRate()
-        scaleFactor = self._getScaleFactor(inputSet)
+        scaleFactor = self._getScaleFactor()
 
         return oldSampling * scaleFactor
 
-    def _getScaleFactor(self, inputSet):
-        return inputSet.getXDim() / self._getBoxSize()
+    def _getScaleFactor(self):
+        return self._getInputParticles().getXDim() / self._getBoxSize()
 
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()
 
     def _runProgram(self, program, args):
         self.runJob(Plugin.getProgram(program), ' '.join(args))
+
+    def _getOutputFn(self, totalSize, chunkSize):
+        newBox = self._getBoxSize()
+        if chunkSize == 0:
+            indexes = np.arange(totalSize)
+            fnames = np.full(totalSize, f"particles.{newBox}.mrcs")
+        else:
+            q, mod = divmod(totalSize, chunkSize)
+            chunks = q * [chunkSize] + [mod]
+            indexes = np.concatenate([np.arange(i) for i in chunks])
+            fnames = np.concatenate([np.full(i, f"particles.{newBox}.{n}.mrcs") for n, i in enumerate(chunks)])
+
+        for index, fn in zip(indexes, fnames):
+            yield index+1, self._getExtraPath(fn)
+
+    def _updateLocation(self, item, row):
+        """ Update the output item location.
+        :item: output item
+        :row: new (index, fn) output location
+        """
+        item.setLocation(row)
+        invFactor = 1 / self._getScaleFactor()
+
+        if invFactor != 1.0:
+            if item.hasCoordinate():
+                item.scaleCoordinate(invFactor)
+            if item.hasTransform():
+                item.getTransform().scaleShifts(invFactor)
