@@ -11,3 +11,4 @@ jobs:
     uses: scipion-em/.github/.github/workflows/publish_and_tag.yml@test
     with:
       folder: cryodrgn
+    secrets: inherit
