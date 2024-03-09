@@ -104,7 +104,7 @@ class Plugin(pwem.Plugin):
             V3_1_0: "3.1.0-beta"
         }
 
-        url = "https://github.com/zhonge/cryodrgn.git"
+        url = "https://github.com/ml-struct-bio/cryodrgn"
         gitCmds = [
             'cd .. &&',
             f'git clone {url} cryodrgn-{version} &&',
