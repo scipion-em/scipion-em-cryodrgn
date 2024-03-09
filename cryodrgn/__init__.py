@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.12'
+__version__ = '3.12.1'
 _references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
@@ -98,16 +98,17 @@ class Plugin(pwem.Plugin):
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
-        branches = {
+        tags = {
             V2_1_0: "2.1.0-beta",
             V2_3_0: "2.3.0",
-            V3_1_0: "v3.1.0-beta"
+            V3_1_0: "3.1.0-beta"
         }
 
-        url = "https://github.com/zhonge/cryodrgn.git"
+        url = "https://github.com/ml-struct-bio/cryodrgn"
         gitCmds = [
             'cd .. &&',
-            f'git clone -b {branches[version]} {url} cryodrgn-{version} &&',
+            f'git clone {url} cryodrgn-{version} &&',
+            f'git checkout {tags[version]} &&',
             f'cd cryodrgn-{version};'
         ]
         gitCmds.extend(installCmds)
