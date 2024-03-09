@@ -1,3 +1,4 @@
+3.12.1: fix installer, use tags instead of branches
 3.12:
     - v3.1.0 added, old versions removed
     - refactor preprocess protocol to do only downsampling and/or chunking
