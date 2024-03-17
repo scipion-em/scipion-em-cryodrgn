@@ -1,3 +1,4 @@
+3.12.2: another installer fix
 3.12.1: fix installer, use tags instead of branches
 3.12:
     - v3.1.0 added, old versions removed
