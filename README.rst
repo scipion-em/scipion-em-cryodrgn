@@ -2,7 +2,7 @@
 cryoDRGN plugin
 ===============
 
-This plugin provides a wrapper for `cryoDRGN <https://github.com/zhonge/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
+This plugin provides a wrapper for `cryoDRGN <https://github.com/ml-struct-bio/cryodrgn>`_ software: Deep Reconstructing Generative Networks for cryo-EM heterogeneous reconstruction.
 
 .. image:: https://img.shields.io/pypi/v/scipion-em-cryodrgn.svg
         :target: https://pypi.python.org/pypi/scipion-em-cryodrgn

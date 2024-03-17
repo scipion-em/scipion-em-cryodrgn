@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.12.1'
+__version__ = '3.12.2'
 _references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
@@ -108,8 +108,8 @@ class Plugin(pwem.Plugin):
         gitCmds = [
             'cd .. &&',
             f'git clone {url} cryodrgn-{version} &&',
-            f'git checkout {tags[version]} &&',
-            f'cd cryodrgn-{version};'
+            f'cd cryodrgn-{version} &&',
+            f'git checkout {tags[version]} ;'
         ]
         gitCmds.extend(installCmds)
         cryodrgnCmds = [(" ".join(gitCmds), FLAG)]
