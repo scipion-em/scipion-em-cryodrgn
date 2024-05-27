@@ -67,9 +67,10 @@ class TestWorkflowCryoDrgn(TestWorkflow):
 
         return self.launchProtocol(protTrain)
 
-    def _runAbinitio(self, protPreprocess, **kwargs):
-        print(magentaStr("\n==> Testing cryoDRGN - ab initio (het):"))
-        protAbinitio = self.newProtocol(CryoDrgnProtAbinitio, **kwargs)
+    def _runAbinitio(self, protPreprocess, protLabel, **kwargs):
+        print(magentaStr(f"\n==> Testing cryoDRGN - ab initio ({protLabel}):"))
+        protAbinitio = self.newProtocol(CryoDrgnProtAbinitio,
+                                        objLabel=protLabel, **kwargs)
         protAbinitio.inputParticles.set(protPreprocess.Particles)
 
         return self.launchProtocol(protAbinitio)
@@ -84,18 +85,26 @@ class TestWorkflowCryoDrgn(TestWorkflow):
     def testWorkflow(self):
         protImport = self._importParticles(self.partFn, 50000, 3.54)
 
-        protPreprocess1 = self._runPreprocess(protImport, "downsample scale=64", scaleSize=64)
+        protPreprocess1 = self._runPreprocess(protImport,
+                                              "downsample scale=64",
+                                              scaleSize=64)
         self.assertIsNotNone(protPreprocess1._possibleOutputs.Particles.name)
 
-        protPreprocess2 = self._runPreprocess(protImport, "downsample scale=48 with chunks",
+        protPreprocess2 = self._runPreprocess(protImport,
+                                              "downsample scale=48 with chunks",
                                               scaleSize=48, chunk=200)
         self.assertIsNotNone(protPreprocess2._possibleOutputs.Particles.name)
 
         protTraining = self._runTraining(protPreprocess2, numEpochs=3, zDim=2)
         self.assertIsNotNone(protTraining._possibleOutputs.Particles.name)
 
-        protAbinitio = self._runAbinitio(protPreprocess2, numEpochs=2, zDim=2)
+        protAbinitio = self._runAbinitio(protPreprocess2, "hetero",
+                                         numEpochs=2, zDim=2)
         self.assertIsNotNone(protAbinitio._possibleOutputs.Particles.name)
+
+        protAbinitio2 = self._runAbinitio(protPreprocess2, "homo",
+                                          numEpochs=2, zDim=1, protType=0)
+        self.assertIsNotNone(protAbinitio2._possibleOutputs.Volumes.name)
 
         protAnalyze = self._runAnalyze(protTraining)
         self.assertIsNotNone(protAnalyze._possibleOutputs.Volumes.name)
