@@ -46,6 +46,7 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
     """
     _label = 'training ab initio'
     _devStatus = PROD
+    _possibleOutputs = outputs
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
