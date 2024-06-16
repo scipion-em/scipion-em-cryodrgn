@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.12.2'
+__version__ = '3.12.3'
 _references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
@@ -89,7 +89,7 @@ class Plugin(pwem.Plugin):
             cls.getCondaActivationCmd(),
             f'conda create -y -n {ENV_NAME} python=3.10 &&',
             f'conda activate {ENV_NAME} &&',
-            'conda install -y "pytorch-gpu<=1.12" cudatoolkit=11.8 -c conda-forge &&',
+            'conda install -y cudatoolkit=11.8 -c conda-forge &&',
             'conda install -y libcufft -c nvidia &&',
             'pip install -e . &&',
             f'touch {FLAG}'  # Flag installation finished
@@ -101,7 +101,8 @@ class Plugin(pwem.Plugin):
         tags = {
             V2_1_0: "2.1.0-beta",
             V2_3_0: "2.3.0",
-            V3_1_0: "3.1.0-beta"
+            V3_1_0: "3.1.0-beta",
+            V3_3_2: "3.3.2"
         }
 
         url = "https://github.com/ml-struct-bio/cryodrgn"

@@ -37,6 +37,7 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
     """ Protocol to train cryoDRGN neural network. """
     _label = 'training VAE'
     _devStatus = PROD
+    _possibleOutputs = CryoDrgnProtBase._possibleOutputs
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):

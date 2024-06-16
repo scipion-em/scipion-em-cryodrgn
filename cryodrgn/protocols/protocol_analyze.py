@@ -38,8 +38,9 @@ from pwem.protocols import ProtAnalysis3D
 from pwem.objects import SetOfVolumes, Volume
 from pwem.emlib.image import ImageHandler, DT_FLOAT
 
+from cryodrgn import Plugin
 from cryodrgn.constants import (EPOCH_LAST, EPOCH_SELECTION, Z_VALUES,
-                                AB_INITIO_HOMO, CLUSTER_WARD)
+                                AB_INITIO_HOMO, CLUSTER_WARD, V3_3_2)
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 
@@ -298,10 +299,19 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
     def _getGraphArgs(self):
         args = [
             self.inputProt.get()._getFileName('z_final'),
-            f"--anchors $(cat {self._getFileName('kmeans_centers', ksamples=self.ksamples)})",
-            f"-o {self._getFileName('graph_path')}",
-            f"--out-z {self._getFileName('graph_pathZ')}"
+            f"--anchors $(cat {self._getFileName('kmeans_centers', ksamples=self.ksamples)})"
         ]
+
+        if Plugin.versionGE(V3_3_2):
+            args.extend([
+                f"--outtxt {self._getFileName('graph_pathZ')}",
+                f"--outind {self._getFileName('graph_path')}"
+            ])
+        else:
+            args.extend([
+                f"-o {self._getFileName('graph_path')}",
+                f"--out-z {self._getFileName('graph_pathZ')}"
+            ])
 
         return args
 
