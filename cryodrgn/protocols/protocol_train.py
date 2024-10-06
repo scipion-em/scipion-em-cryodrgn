@@ -97,11 +97,9 @@ class CryoDrgnProtTrain(CryoDrgnProtBase):
             f"--enc-dim {run.qDim}",
             f"--dec-layers {run.pLayers}",
             f"--dec-dim {run.pDim}",
-            "--load latest" if self.doContinue else ""
+            "--load latest" if self.doContinue else "",
+            f"--datadir {self._getExtraPath('input')}"
         ]
-
-        if Plugin.versionGE(V3_1_0):
-            args.append(f"--datadir {self._getExtraPath('input')}")
 
         if run.doWindow:
             args.append(f"--window-r {run.winSize}")

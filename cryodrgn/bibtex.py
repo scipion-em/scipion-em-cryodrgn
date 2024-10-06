@@ -37,12 +37,17 @@
 }
 
 @article{Kinman2022,
-  doi = {https://dx.doi.org/10.1101/2022.08.09.503342},
+  title = {Uncovering structural ensembles from single-particle cryo-EM data using cryoDRGN},
+  volume = {18},
+  ISSN = {1750-2799},
+  DOI = {http://dx.doi.org/10.1038/s41596-022-00763-x},
+  number = {2},
+  journal = {Nature Protocols},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Kinman,  Laurel F. and Powell,  Barrett M. and Zhong,  Ellen D. and Berger,  Bonnie and Davis,  Joseph H.},
   year = {2022},
-  month = {aug},
-  publisher = {Cold Spring Harbor Laboratory},
-  author = {Laurel F. Kinman and Barrett M. Powell and Ellen D. Zhong and Bonnie Berger and Joseph H. Davis},
-  title = {Uncovering structural ensembles from single particle cryo-{EM} data using {cryoDRGN}}
+  month = nov,
+  pages = {319–339}
 }
 
 @article{Zhong2021,

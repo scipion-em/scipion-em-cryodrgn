@@ -133,11 +133,9 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
             f"-n {self.numEpochs}",
             f"--t-extent {run.searchRange}",
             f"--ps-freq {run.psFreq}",
-            "--load latest" if self.doContinue else ""
+            "--load latest" if self.doContinue else "",
+            f"--datadir {self._getExtraPath('input')}"
         ]
-
-        if Plugin.versionGE(V3_1_0):
-            args.append(f"--datadir {self._getExtraPath('input')}")
 
         if protType == AB_INITIO_HETERO:
             args.extend([
