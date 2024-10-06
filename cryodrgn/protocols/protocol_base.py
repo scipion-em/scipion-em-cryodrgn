@@ -32,7 +32,6 @@ from glob import glob
 from enum import Enum
 
 import pyworkflow.protocol.params as params
-import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
@@ -40,7 +39,7 @@ from pwem.protocols import ProtProcessParticles, ProtFlexBase
 from pwem.objects import SetOfParticles, ParticleFlex
 
 from cryodrgn import Plugin
-from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES, CRYODRGN
+from cryodrgn.constants import WEIGHTS, CONFIG, CRYODRGN
 
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
@@ -64,7 +63,11 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
             'z_final': self.getOutputDir('z.pkl'),
             'weights': self.getOutputDir('weights.%(epoch)d.pkl'),
             'weights_final': self.getOutputDir('weights.pkl'),
-            'config': self.getOutputDir('config.yaml')
+            'config': self.getOutputDir('config.yaml'),
+            'subtomo_avg': self.getOutputDir('backproject.mrc'),
+            'subtomo_avg_half1': self.getOutputDir('half_map_a.mrc'),
+            'subtomo_avg_half2': self.getOutputDir('half_map_b.mrc'),
+            'subtomo_avg_fsc': self.getOutputDir('fsc-vals.txt')
         }
         self._updateFilenamesDict(myDict)
 
@@ -163,7 +166,7 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         imgSet = self._getInputParticles()
         alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
         convert.writeSetOfParticles(imgSet,
-                                    self._getExtraPath('input_particles.star'),
+                                    self._getFileName('input_parts'),
                                     outputDir=self._getExtraPath(),
                                     alignType=alignType)
 

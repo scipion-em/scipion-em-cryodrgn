@@ -62,3 +62,6 @@ CLUSTER_WARD = 1
 
 # FlexHub program
 CRYODRGN = "CryoDRGN"
+
+# fsc-vals.txt columns except pixres
+FSC_COLUMNS = ['NoMask', 'Spherical', 'Loose', 'Tight', 'Corrected']

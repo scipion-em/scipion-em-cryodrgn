@@ -28,8 +28,6 @@ import pyworkflow.object as pwobj
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 
-from cryodrgn import Plugin
-from cryodrgn.constants import V3_1_0
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 

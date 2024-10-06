@@ -26,6 +26,16 @@
 # **************************************************************************
 """
 
+@article{Rangan2023,
+	author = {Rangan, Ramya and Khavnekar, Sagar and Lerer, Adam and Johnston, Jake and Kelley, Ron and Obr, Martin and Kotecha, Abhay and Zhong, Ellen D.},
+	title = {Deep reconstructing generative networks for visualizing dynamic biomolecules inside cells},
+	year = {2023},
+	doi = {http://dx.doi.org/10.1101/2023.08.18.553799},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2023/08/18/2023.08.18.553799},
+	journal = {bioRxiv}
+}
+
 @article{Zhong2021b,
   author    = {Zhong, Ellen D. and Lerer, Adam and Davis, Joseph H. and Berger, Bonnie},
   title     = {CryoDRGN2: Ab Initio Neural Reconstruction of 3D Protein Structures From Real Cryo-EM Images},
