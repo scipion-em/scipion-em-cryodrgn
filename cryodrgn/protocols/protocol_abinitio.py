@@ -30,8 +30,7 @@ import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
 from pwem.objects import SetOfParticles, Volume
 
-from cryodrgn import Plugin
-from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO, V3_1_0
+from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 

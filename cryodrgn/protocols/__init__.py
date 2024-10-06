@@ -23,8 +23,12 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from pyworkflow.utils import weakImport
 
 from .protocol_preprocess import CryoDrgnProtPreprocess
 from .protocol_train import CryoDrgnProtTrain
 from .protocol_abinitio import CryoDrgnProtAbinitio
 from .protocol_analyze import CryoDrgnProtAnalyze
+
+with weakImport("tomo"):
+    from .protocol_tomo_backproject import CryoDrgnProtBackProject
