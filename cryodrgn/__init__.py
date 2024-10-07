@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.12.3'
+__version__ = '3.12.4'
 _references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
@@ -99,10 +99,9 @@ class Plugin(pwem.Plugin):
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
         tags = {
-            V2_1_0: "2.1.0-beta",
-            V2_3_0: "2.3.0",
             V3_1_0: "3.1.0-beta",
-            V3_3_2: "3.3.2"
+            V3_3_2: "3.3.2",
+            V3_4_0: "3.4.0"
         }
 
         url = "https://github.com/ml-struct-bio/cryodrgn"
