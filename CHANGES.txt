@@ -1,3 +1,4 @@
+3.12.5: fix downsampling and pca-dim bugs in analyze landscape
 3.12.4: add v3.4.0, deprecated v2 support
 3.12.3: v3.3.2 added
 3.12.2: another installer fix
