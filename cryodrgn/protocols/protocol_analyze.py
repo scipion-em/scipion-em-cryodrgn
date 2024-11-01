@@ -246,7 +246,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
                 errors.append(f"You can analyse only epochs 1-{total+1}")
 
         if self.doDownsample:
-            origBox = inputProt._getInputParticles().getXDim()
+            origBox = self._getBoxSize()
             newBox = self.boxSize.get()
             if newBox > origBox:
                 errors.append("You cannot upscale volumes!")
@@ -254,7 +254,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         if self.doLandscape:
             if self.inputMask.hasValue():
                 maskSize = self.inputMask.get().getXDim()
-                origBox = inputProt._getInputParticles().getXDim()
+                origBox = self._getBoxSize()
                 volSize = self.boxSize if self.doDownsample else origBox
                 if maskSize != volSize:
                     errors.append("Mask dimensions do not match the output volumes!")
@@ -336,8 +336,9 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             f"-N {self.numVols}",
             f"--linkage {self.getEnumText('linkage')}",
             f"-M {self.numClusters}",
-            f"-d {self.boxSize}" if self.doDownsample else "",
+            f"-d {self.boxSize if self.doDownsample else self._getBoxSize()}",
             "--flip" if self.doFlip else "",
+            f"--pc-dim {min(self.numVols, 20)}"
         ]
 
         if self.autoMask:
@@ -428,9 +429,12 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
     def _getSamplingRate(self):
         return self.inputProt.get()._getInputParticles().getSamplingRate()
 
+    def _getBoxSize(self):
+        return self.inputProt.get()._getInputParticles().getXDim()
+
     def _getOutputSampling(self):
         if self.doDownsample:
-            origBox = self.inputProt.get()._getInputParticles().getXDim()
+            origBox = self._getBoxSize()
             newBox = self.boxSize.get()
             return origBox/newBox * self._getSamplingRate()
         else:
