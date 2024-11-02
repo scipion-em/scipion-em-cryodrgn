@@ -172,7 +172,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
-        inputProt = self.inputProt.get()
+        inputProt = self._getInputProt()
         inputProt._createFilenameTemplates()
 
         if self.inputEpoch == EPOCH_LAST:
@@ -206,7 +206,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
 
         self._defineOutputs(**{outputs.Volumes.name: setOfVolumes})
-        self._defineSourceRelation(self.inputProt.get()._getInputParticles(pointer=True),
+        self._defineSourceRelation(self._getInputProt()._getInputParticles(pointer=True),
                                    setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
@@ -230,7 +230,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     def _validate(self):
         errors = []
-        inputProt = self.inputProt.get()
+        inputProt = self._getInputProt()
 
         # ab initio homo is not allowed
         if inputProt.getClassName() == "CryoDrgnProtAbinitio":
@@ -282,7 +282,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     def _getAnalyzeArgs(self, epoch):
         args = [
-            self.inputProt.get()._getExtraPath("output"),
+            self._getInputProt()._getExtraPath("output"),
             f"{epoch}",
             f"-o {self.getOutputDir(f'analyze.{epoch}')}",
             f"--Apix {self._getSamplingRate()}",
@@ -298,7 +298,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     def _getGraphArgs(self):
         args = [
-            self.inputProt.get()._getFileName('z_final'),
+            self._getInputProt()._getFileName('z_final'),
             f"--anchors $(cat {self._getFileName('kmeans_centers', ksamples=self.ksamples)})"
         ]
 
@@ -317,8 +317,8 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     def _getEvalArgs(self):
         args = [
-            self.inputProt.get()._getFileName('weights_final'),
-            f"-c {self.inputProt.get()._getFileName('config')}",
+            self._getInputProt()._getFileName('weights_final'),
+            f"-c {self._getInputProt()._getFileName('config')}",
             f"--zfile {self._getFileName('graph_pathZ')}",
             f"-o {self._getFileName('graph_vols')}"
         ]
@@ -327,7 +327,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
     def _getLandscapeArgs(self, epoch):
         args = [
-            self.inputProt.get()._getExtraPath("output"),
+            self._getInputProt()._getExtraPath("output"),
             f"{epoch}",
             f"-o {self.getOutputDir(f'landscape.{epoch}')}",
             f"--Apix {self._getSamplingRate()}",
@@ -427,10 +427,10 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         return volSet
 
     def _getSamplingRate(self):
-        return self.inputProt.get()._getInputParticles().getSamplingRate()
+        return self._getInputProt()._getInputParticles().getSamplingRate()
 
     def _getBoxSize(self):
-        return self.inputProt.get()._getInputParticles().getXDim()
+        return self._getInputProt()._getInputParticles().getXDim()
 
     def _getOutputSampling(self):
         if self.doDownsample:
@@ -441,11 +441,14 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             return self._getSamplingRate()
 
     def hasMultLatentVars(self):
-        inputProt = self.inputProt.get()
+        inputProt = self._getInputProt()
         if inputProt.doContinue:
             return inputProt.continueRun.get().zDim.get() > 1
         else:
             return inputProt.zDim.get() > 1
 
     def _getLastEpoch(self):
-        return self.inputProt.get()._getLastEpoch()
+        return self._getInputProt()._getLastEpoch()
+
+    def _getInputProt(self):
+        return self.inputProt.get()

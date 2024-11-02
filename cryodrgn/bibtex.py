@@ -40,7 +40,7 @@
   title = {Uncovering structural ensembles from single-particle cryo-EM data using cryoDRGN},
   volume = {18},
   ISSN = {1750-2799},
-  DOI = {http://dx.doi.org/10.1038/s41596-022-00763-x},
+  DOI = {https://dx.doi.org/10.1038/s41596-022-00763-x},
   number = {2},
   journal = {Nature Protocols},
   publisher = {Springer Science and Business Media LLC},

@@ -28,15 +28,14 @@ from enum import Enum
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 import pyworkflow.object as pwobj
-from pwem.objects import SetOfParticles, Volume
+from pwem.objects import SetOfParticlesFlex, Volume
 
-from cryodrgn import Plugin
-from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO, V3_1_0
+from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO
 from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
 
 class outputs(Enum):
-    Particles = SetOfParticles
+    Particles = SetOfParticlesFlex
     Volumes = Volume
 
 
@@ -77,14 +76,14 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
 
     # --------------------------- STEPS functions -----------------------------
     def runTrainingStep(self):
-        run = self.continueRun.get() if self.doContinue else self
+        run = self._getRun()
         protType = run.protType.get()
         program = "homo" if protType == AB_INITIO_HOMO else "het"
         self._runProgram("abinit_" + program, self._getTrainingArgs(protType))
 
     def createOutputStep(self):
         """ Creating a set of particles with z_values. """
-        run = self.continueRun.get() if self.doContinue else self
+        run = self._getRun()
         protType = run.protType.get()
         if protType == AB_INITIO_HETERO:
             CryoDrgnProtBase.createOutputStep(self)
@@ -100,7 +99,7 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
-        run = self.continueRun.get() if self.doContinue else self
+        run = self._getRun()
         protType = run.getEnumText("protType")
         summary = [f"Training ab initio ({protType}) for {self.numEpochs} epochs."]
 
@@ -124,7 +123,7 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
 
     # --------------------------- UTILS functions -----------------------------
     def _getTrainingArgs(self, protType=AB_INITIO_HOMO):
-        run = self.continueRun.get() if self.doContinue else self
+        run = self._getRun()
 
         args = [
             self._getFileName('input_parts'),
@@ -150,3 +149,6 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
             args.append(self.extraParams.get())
 
         return args
+
+    def _getRun(self):
+        return self.continueRun.get() if self.doContinue else self

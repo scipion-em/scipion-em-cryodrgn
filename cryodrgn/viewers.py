@@ -62,7 +62,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                 'umap_pcN': out('../pc%(pc)d/umap.png'),
                 'umap_pcN_traversal': out('../pc%(pc)d/umap_traversal_connected.png'),
                 'graph_vol': out('../graph_traversal/vol_000.mrc'),
-                'notebook': out('../cryoDRGN_viz.ipynb')
+                'notebook': out('../cryoDRGN_filtering.ipynb')
             })
             if self.protocol.doLandscape:
                 path = glob(self.protocol.getOutputDir("landscape.*"))[0]
@@ -79,7 +79,7 @@ class CryoDrgnViewer(EmProtocolViewer):
             self._updateFilenamesDict({
                 'simple_hist': out('z_hist.png'),
                 'simple_dist': out('z.png'),
-                'notebook': out('cryoDRGN_viz.ipynb')
+                'notebook': out('cryoDRGN_filtering.ipynb')
             })
 
     def _defineParams(self, form):
