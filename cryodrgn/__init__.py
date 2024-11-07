@@ -32,7 +32,7 @@ from pyworkflow import Config
 from .constants import *
 
 
-__version__ = '3.12.5'
+__version__ = '3.13'
 _references = ['Zhong2020', 'Zhong2021', 'Zhong2021b', 'Kinman2022']
 _logo = "cryodrgn_logo.png"
 
@@ -84,35 +84,19 @@ class Plugin(pwem.Plugin):
         ENV_NAME = getCryoDrgnEnvName(version)
         FLAG = f"cryodrgn_{version}_installed"
 
-        # try to get CONDA activation command
         installCmds = [
             cls.getCondaActivationCmd(),
             f'conda create -y -n {ENV_NAME} python=3.10 &&',
             f'conda activate {ENV_NAME} &&',
-            'conda install -y cudatoolkit=11.8 -c conda-forge &&',
-            'conda install -y libcufft -c nvidia &&',
-            'pip install -e . &&',
+            f'pip install cryodrgn=={version} &&',
             f'touch {FLAG}'  # Flag installation finished
         ]
 
         envPath = os.environ.get('PATH', "")
         # keep path since conda likely in there
         installEnvVars = {'PATH': envPath} if envPath else None
-        tags = {
-            V3_1_0: "3.1.0-beta",
-            V3_3_2: "3.3.2",
-            V3_4_0: "3.4.0"
-        }
 
-        url = "https://github.com/ml-struct-bio/cryodrgn"
-        gitCmds = [
-            'cd .. &&',
-            f'git clone {url} cryodrgn-{version} &&',
-            f'cd cryodrgn-{version} &&',
-            f'git checkout {tags[version]} ;'
-        ]
-        gitCmds.extend(installCmds)
-        cryodrgnCmds = [(" ".join(gitCmds), FLAG)]
+        cryodrgnCmds = [(" ".join(installCmds), FLAG)]
         env.addPackage('cryodrgn', version=version,
                        tar='void.tgz',
                        commands=cryodrgnCmds,
