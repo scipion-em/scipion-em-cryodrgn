@@ -32,22 +32,21 @@ from glob import glob
 from enum import Enum
 
 import pyworkflow.protocol.params as params
-import pyworkflow.object as pwobj
 import pyworkflow.utils as pwutils
 from pyworkflow.plugin import Domain
 from pwem.constants import ALIGN_PROJ, ALIGN_NONE
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
-from pwem.objects import SetOfParticles, ParticleFlex
+from pwem.objects import SetOfParticlesFlex, ParticleFlex
 
 from cryodrgn import Plugin
-from cryodrgn.constants import WEIGHTS, CONFIG, Z_VALUES, CRYODRGN
+from cryodrgn.constants import WEIGHTS, CONFIG, CRYODRGN
 
 
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 
 class outputs(Enum):
-    Particles = SetOfParticles
+    Particles = SetOfParticlesFlex
 
 
 class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
