@@ -1,3 +1,6 @@
+3.13.1:
+    - add v3.4.3
+    - fix #56
 3.13:
     - simplify the installer: use pip
     - fix possible outputs

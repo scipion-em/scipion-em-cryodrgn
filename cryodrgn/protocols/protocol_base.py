@@ -263,8 +263,10 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
     def _getLastEpoch(self):
         """ Return the last iteration number. """
         epoch = None
-        epochRegex = re.compile(r'weights.(\d).pkl')
-        files = sorted(glob(self._getFileName("weights", epoch=0).replace('0', '*')))
+        pattern = r'weights.(\d).pkl'
+        epochRegex = re.compile(pattern)
+        files = glob(self._getFileName("weights", epoch=0).replace('0', '*'))
+        files = sorted(files, key=lambda x: int(re.search(pattern, x).group(1)))
         if files:
             f = files[-1]
             s = epochRegex.search(f)

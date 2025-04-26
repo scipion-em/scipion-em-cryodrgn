@@ -29,12 +29,12 @@ def getCryoDrgnEnvName(version):
     return "cryodrgn-%s" % version
 
 
-V3_1_0 = "3.1.0"
 V3_3_2 = "3.3.2"
 V3_4_0 = "3.4.0"
+V3_4_4 = "3.4.4"
 
-VERSIONS = [V3_1_0, V3_3_2, V3_4_0]
-CRYODRGN_DEFAULT_VER_NUM = V3_4_0
+VERSIONS = [V3_3_2, V3_4_0, V3_4_4]
+CRYODRGN_DEFAULT_VER_NUM = V3_4_4
 
 DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
