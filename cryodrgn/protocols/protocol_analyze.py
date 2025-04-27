@@ -182,8 +182,9 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
         self._createFilenameTemplates()
 
-        self._insertFunctionStep(self.runAnalysisStep, self._epoch)
-        self._insertFunctionStep(self.createOutputStep)
+        self._insertFunctionStep(self.runAnalysisStep, self._epoch,
+                                 needsGPU=True)
+        self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def runAnalysisStep(self, epoch):

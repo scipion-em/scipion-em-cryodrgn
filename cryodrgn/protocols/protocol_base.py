@@ -149,12 +149,12 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         self._createFilenameTemplates()
 
         if self.doContinue:
-            self._insertFunctionStep(self.continueStep)
+            self._insertFunctionStep(self.continueStep, needsGPU=False)
         else:
-            self._insertFunctionStep(self.convertInputStep)
+            self._insertFunctionStep(self.convertInputStep, needsGPU=False)
 
-        self._insertFunctionStep(self.runTrainingStep)
-        self._insertFunctionStep(self.createOutputStep)
+        self._insertFunctionStep(self.runTrainingStep, needsGPU=True)
+        self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
