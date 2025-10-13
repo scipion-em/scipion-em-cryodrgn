@@ -149,12 +149,12 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
         self._createFilenameTemplates()
 
         if self.doContinue:
-            self._insertFunctionStep(self.continueStep)
+            self._insertFunctionStep(self.continueStep, needsGPU=False)
         else:
-            self._insertFunctionStep(self.convertInputStep)
+            self._insertFunctionStep(self.convertInputStep, needsGPU=False)
 
-        self._insertFunctionStep(self.runTrainingStep)
-        self._insertFunctionStep(self.createOutputStep)
+        self._insertFunctionStep(self.runTrainingStep, needsGPU=True)
+        self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self):
@@ -263,8 +263,10 @@ class CryoDrgnProtBase(ProtProcessParticles, ProtFlexBase):
     def _getLastEpoch(self):
         """ Return the last iteration number. """
         epoch = None
-        epochRegex = re.compile(r'weights.(\d).pkl')
-        files = sorted(glob(self._getFileName("weights", epoch=0).replace('0', '*')))
+        pattern = r'weights.(\d).pkl'
+        epochRegex = re.compile(pattern)
+        files = glob(self._getFileName("weights", epoch=0).replace('0', '*'))
+        files = sorted(files, key=lambda x: int(re.search(pattern, x).group(1)))
         if files:
             f = files[-1]
             s = epochRegex.search(f)
