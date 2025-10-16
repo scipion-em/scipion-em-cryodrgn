@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
-# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo Garc�a Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -90,7 +90,7 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
                       label='Ab initio type')
 
         form.addParam('zDim', params.IntParam, default=8,
-                      condition='not doContinue',
+                      condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
                       validators=[params.Positive],
                       label='Dimension of latent variable',
                       help='It is recommended to first train on lower '
@@ -223,43 +223,40 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
         protType = run.protType.get()
         inputSet = self._getInputParticles()
 
-        zValues = iter(self._getParticlesZvalues())
-        outImgSet = self._createSetOfParticlesFlex(progName=CRYODRGN)
-        outImgSet.copyInfo(inputSet)
-        outImgSet.setHasCTF(inputSet.hasCTF())
-        outImgSet.getFlexInfo().setProgName(CRYODRGN)
-
-        for particle, zValue in zip(inputSet, zValues):
-            outParticle = emobj.ParticleFlex(progName=CRYODRGN)
-            outParticle.copyInfo(particle)
-            outParticle.getFlexInfo().setProgName(CRYODRGN)
-
-            outParticle.setZFlex(list(zValue))
-
-            outImgSet.append(outParticle)
-
-        outImgSet.getFlexInfo().setAttr(WEIGHTS, self._getFileName('weights_final'))
-        outImgSet.getFlexInfo().setAttr(CONFIG, self._getFileName('config'))
-
-        self._defineOutputs(outputParticles=outImgSet)
-        self._defineSourceRelation(inputSet, outImgSet)
-
         if protType == AB_INITIO_HETERO:
-            vols = []
-            for epoch in self.numEpochs.get():
-                vols[epoch] = emobj.Volume()
-                vols[epoch].setFileName(self._getOutputDir(f"reconstruct_{epoch}.mrc"))
-                vols[epoch].setSamplingRate(inputSet.getSamplingRate())
+            zValues = iter(self._getParticlesZvalues())
+            outImgSet = self._createSetOfParticlesFlex(progName=CRYODRGN)
+            outImgSet.copyInfo(inputSet)
+            outImgSet.setHasCTF(inputSet.hasCTF())
+            outImgSet.getFlexInfo().setProgName(CRYODRGN)
 
-            self._defineOutputs(outputVolumes=vols)
+            for particle, zValue in zip(inputSet, zValues):
+                outParticle = emobj.ParticleFlex(progName=CRYODRGN)
+                outParticle.copyInfo(particle)
+                outParticle.getFlexInfo().setProgName(CRYODRGN)
+
+                outParticle.setZFlex(list(zValue))
+
+                outImgSet.append(outParticle)
+
+            outImgSet.getFlexInfo().setAttr(WEIGHTS, self._getFileName('weights_final'))
+            outImgSet.getFlexInfo().setAttr(CONFIG, self._getFileName('config'))
+
+            self._defineOutputs(outputParticles=outImgSet)
+            self._defineSourceRelation(inputSet, outImgSet)
+
+        elif protType == AB_INITIO_HOMO:
+            fn = self._getOutputDir("volumes.sqlite")
+            vols = emobj.SetOfVolumes(filename=fn)
+            vols.setSamplingRate(inputSet.getSamplingRate())
+            for epoch in range(self.numEpochs.get()):
+                vol = emobj.Volume()
+                vol.setFileName(self._getOutputDir(f"reconstruct.{epoch}.mrc"))
+                vol.setSamplingRate(inputSet.getSamplingRate())
+                vols.append(vol)
+
+            self._defineOutputs(outputVolume=vols)
             self._defineSourceRelation(inputSet, vols)
-        else:
-            vol = emobj.Volume()
-            vol.setFileName(self._getOutputDir("reconstruct.mrc"))
-            vol.setSamplingRate(inputSet.getSamplingRate())
-
-            self._defineOutputs(outputVolume=vol)
-            self._defineSourceRelation(inputSet, vol)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -273,11 +270,8 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
         errors = super()._validate()
 
         if not self.doContinue:
-            if self.zDim > 1 and self.protType.get() == AB_INITIO_HOMO:
-                errors.append("Latent variable must be 1 for "
-                              "homogeneous reconstruction")
             if self.zDim == 1 and self.protType.get() == AB_INITIO_HETERO:
-                errors.append("Latent variable must be >1 for "
+                errors.append("Latent variable must be > 1 for "
                               "heterogeneous reconstruction")
         else:
             if not self.continueRun.hasValue():
@@ -353,10 +347,6 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
 
         return zValues
 
-    def _setZValues(self, item, row=None):
-        item.getFlexInfo().setProgName(CRYODRGN)
-        item.setZFlex(list(row))
-
     def _getOutputDir(self, *paths):
         return self._getExtraPath("output", *paths)
 
@@ -367,6 +357,9 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
             parts = self.inputParticles
 
         return parts if pointer else parts.get()
+
+    def _hasMultLatentVars(self):
+        return int(self.zDim) > 1
 
     def _inputHasAlign(self):
         return self._getInputParticles().hasAlignmentProj()

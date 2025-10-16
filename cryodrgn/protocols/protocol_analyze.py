@@ -2,7 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              Yunior C. Fonseca Reyna (cfonseca@cnb.csic.es) [2]
-# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo Garc�a Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -41,6 +41,7 @@ from pwem.emlib.image import ImageHandler
 from pwem.protocols import ProtProcessParticles, ProtFlexBase
 from .. import Plugin
 from ..constants import *
+
 
 class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
     """ CryoDrgn protocol to visualize latent space and generate volumes. """
@@ -199,13 +200,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
 
     # --------------------------- STEPS functions -----------------------------
     def convertInputStep(self, epoch):
-        # Copy analyze.epoch/umap.pkl to landscape.epoch folder
-        pwutils.makePath(self._getOutputDir(f'landscape.{epoch}'))
-        pwutils.copyFile(self._getFileName('umaps'),
-                         self._getOutputDir(f'landscape.{epoch}/umap.pkl'))
-
         if not self.autoMask:
-            # convert mask to mrc
             maskFn = self.inputMask.get().getFileName()
             if pwutils.getExt(maskFn) == ".mrc":
                 pwutils.createLink(maskFn, self._getFileName("input_mask"))
@@ -215,7 +210,12 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
 
     def runAnalysisStep(self, epoch):
         pwutils.makePath(self._getOutputDir())
+
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
+
+        pwutils.makePath(self._getOutputDir(f'landscape.{epoch}'))
+        pwutils.copyFile(self._getFileName('umaps'),
+                         self._getOutputDir(f'landscape.{epoch}/umap.pkl'))
 
         if self.doGraphTraversal and self.hasMultLatentVars():
             self._runProgram('graph_traversal', self._getGraphArgs())
@@ -268,7 +268,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             ep = self.epochNum.get() - 1
             total = self._getLastEpoch()
             if ep > total:
-                errors.append(f"You can analyse only epochs 1-{total+1}")
+                errors.append(f"You can analyse only epochs 1-{total + 1}")
 
         if self.doDownsample:
             origBox = self._getBoxSize()
@@ -445,7 +445,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
 
     def _getBoxSize(self):
         return self._getInputProt()._getInputParticles().getXDim()
-    
+
     def _getOutputDir(self, *paths):
         return self._getExtraPath("output", *paths)
 
@@ -453,7 +453,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
         if self.doDownsample:
             origBox = self._getBoxSize()
             newBox = self.boxSize.get()
-            return origBox/newBox * self._getSamplingRate()
+            return origBox / newBox * self._getSamplingRate()
         else:
             return self._getSamplingRate()
 
