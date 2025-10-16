@@ -2,6 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              Yunior C. Fonseca Reyna (cfonseca@cnb.csic.es) [2]
+# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -27,20 +28,16 @@
 # **************************************************************************
 
 import pickle
-
 import pyworkflow.protocol.params as params
-from pyworkflow.constants import NEW
-
+from pwem.protocols import ProtProcessParticles, ProtFlexBase
+from pyworkflow.constants import PROD
 from cryodrgn.constants import CRYODRGN
-from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
 
-
-class CryoDrgnProtSubset(CryoDrgnProtBase):
+class CryoDrgnProtSubset(ProtProcessParticles, ProtFlexBase):
     """ CryoDrgn protocol to make a particles subset using a pkl file. """
 
     _label = "particles subset"
-    _devStatus = NEW
-    _possibleOutputs = CryoDrgnProtBase._possibleOutputs
+    _devStatus = PROD
     doContinue = False
 
     # --------------------------- DEFINE param functions ----------------------
@@ -51,6 +48,7 @@ class CryoDrgnProtSubset(CryoDrgnProtBase):
                       label="Input particles with Flex info", important=True,
                       help="Select a set of output particles from CryoDrgn "
                            "training or ab-initio protocol.")
+
         form.addParam('pklFile', params.FileParam, important=True,
                       filter="*.pkl", default='',
                       label='Choose *.pkl file with particle selection',
