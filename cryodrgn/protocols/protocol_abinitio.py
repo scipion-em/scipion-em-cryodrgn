@@ -78,8 +78,7 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
                       pointerClass='SetOfParticles',
                       condition='not doContinue',
                       label="Input particles", important=True,
-                      help='Select a set of particles from a consensus C1 '
-                           '3D refinement.')
+                      help='Select a set of particles (with CTF)')
 
         form.addSection(label='Training')
         form.addParam('protType', params.EnumParam,
