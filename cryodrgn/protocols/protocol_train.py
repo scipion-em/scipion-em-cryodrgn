@@ -135,13 +135,13 @@ class CryoDrgnProtTrain(ProtProcessParticles, ProtFlexBase):
                       label="Weight decay",
                       help="Weight decay for Adam optimizer")
 
-        form.addParam('doInvert', params.BooleanParam, default=True,
+        form.addParam('doInvert', params.BooleanParam, default=False,
                       condition='not doContinue',
                       expertLevel=params.LEVEL_ADVANCED,
                       label="Invert",
                       help="Invert input particles?")
 
-        form.addParam('doWindow', params.BooleanParam, default=True,
+        form.addParam('doWindow', params.BooleanParam, default=False,
                       condition='not doContinue',
                       expertLevel=params.LEVEL_ADVANCED,
                       label="Circular mask",
