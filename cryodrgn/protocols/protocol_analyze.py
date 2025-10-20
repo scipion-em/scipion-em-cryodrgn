@@ -27,10 +27,7 @@
 # *
 # **************************************************************************
 
-import os, shutil
 import numpy as np
-import pickle
-from pyworkflow.protocol.constants import *
 import pyworkflow.utils as pwutils
 from pyworkflow.object import *
 import pyworkflow.protocol.params as params
@@ -86,20 +83,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
                       condition='inputEpoch==%d' % EPOCH_SELECTION,
                       label="Epoch number")
 
-        form.addSection('Volume generation')
-        form.addParam('doFlip', params.BooleanParam, default=False,
-                      label="Flip handedness of output volumes")
-
-        form.addParam('doInvert', params.BooleanParam, default=False,
-                      label="Invert contrast of output volumes")
-
-        form.addParam('doDownsample', params.BooleanParam, default=False,
-                      label="Downsample volumes?")
-
-        form.addParam('boxSize', params.IntParam, default=128,
-                      condition='doDownsample', label="New box size (px)")
-
-        form.addSection(label='Latent space')
+        form.addSection(label='Analysis')
         form.addParam('doGraphTraversal', params.BooleanParam, default=False,
                       label="Do graph traversal?",
                       help="CryoDRGN's graph traversal algorithm builds a nearest "
@@ -110,6 +94,12 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
                            "remaining on the data manifold since we don't want "
                            "to generate structures from unoccupied regions of "
                            "the latent space.")
+
+        form.addParam('doDownsample', params.BooleanParam, default=False,
+                      label="Downsample volumes?")
+
+        form.addParam('boxSize', params.IntParam, default=128,
+                      condition='doDownsample', label="New box size (px)")
 
         form.addParam('pc', params.IntParam, default=2,
                       label="Number of principal components",
@@ -124,7 +114,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect.")
 
-        form.addSection(label='Landscape analysis')
+        form.addSection(label='Landscape Analysis')
         form.addParam('doLandscape', params.BooleanParam, default=False,
                       label="Perform conformational landscape analysis?",
                       help="Runs landscape analysis tool for comprehensive and "
@@ -159,8 +149,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
                        label="Dilation (px)",
                        help="Dilate initial mask by this amount")
 
-        group = form.addGroup('Clustering',
-                              condition='doLandscape')
+        group = form.addGroup('Clustering', condition='doLandscape')
         group.addParam('linkage', params.EnumParam,
                        choices=['average', 'ward'],
                        default=CLUSTER_WARD,
@@ -298,8 +287,6 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             f"--Apix {self._getSamplingRate()}",
             f"--device {self.gpuList.get()}",
             f"-d {self.boxSize}" if self.doDownsample else "",
-            "--flip" if self.doFlip else "",
-            "--invert" if self.doInvert else "",
             f"--ksample {self.ksamples}" if self.hasMultLatentVars() else "",
             f"--pc {self.pc}" if self.hasMultLatentVars() else ""
         ]
@@ -347,7 +334,6 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             f"--linkage {self.getEnumText('linkage')}",
             f"-M {self.numClusters}",
             f"-d {self.boxSize if self.doDownsample else self._getBoxSize()}",
-            "--flip" if self.doFlip else "",
             f"--pc-dim {min(self.numVols, 20)}"
         ]
 
