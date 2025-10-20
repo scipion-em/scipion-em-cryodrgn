@@ -211,10 +211,7 @@ class CryoDrgnProtTrain(ProtProcessParticles, ProtFlexBase):
             errors.append("Input particles have no alignment information!")
 
         if not self.doContinue:
-            if self.zDim > 1 and self.protType.get() == AB_INITIO_HOMO:
-                errors.append("Latent variable must be 1 for "
-                              "homogeneous reconstruction")
-            if self.zDim == 1 and self.protType.get() == AB_INITIO_HETERO:
+            if self.zDim == 1:
                 errors.append("Latent variable must be >1 for "
                               "heterogeneous reconstruction")
         else:
