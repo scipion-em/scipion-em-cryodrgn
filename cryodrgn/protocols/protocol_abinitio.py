@@ -42,7 +42,7 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
     """
     Protocol to run ab-initio reconstruction with cryoDRGN neural network.
     """
-    _label = 'cryodrgn training ab-initio'
+    _label = 'training ab-initio'
     _devStatus = PROD
 
     def __init__(self, **kwargs):
@@ -86,7 +86,7 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
                       choices=['homogeneous', 'heterogeneous'],
                       default=AB_INITIO_HETERO,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      label='Ab initio type')
+                      label='Ab-initio type')
 
         form.addParam('zDim', params.IntParam, default=8,
                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
@@ -240,6 +240,7 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
 
             outImgSet.getFlexInfo().setAttr(WEIGHTS, self._getFileName('weights_final'))
             outImgSet.getFlexInfo().setAttr(CONFIG, self._getFileName('config'))
+            outImgSet.getFlexInfo().setAttr(AB_INITIO_HETERO_LABEL, AB_INITIO_HETERO)
 
             self._defineOutputs(outputParticles=outImgSet)
             self._defineSourceRelation(inputSet, outImgSet)

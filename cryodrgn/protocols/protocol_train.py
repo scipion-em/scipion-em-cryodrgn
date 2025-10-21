@@ -41,7 +41,7 @@ convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 class CryoDrgnProtTrain(ProtProcessParticles, ProtFlexBase):
     """ Protocol to train cryoDRGN neural network. """
 
-    _label = 'cryodrgn training VAE'
+    _label = 'training VAE'
     _devStatus = PROD
 
     def __init__(self, **kwargs):

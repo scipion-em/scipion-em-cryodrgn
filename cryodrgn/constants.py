@@ -52,6 +52,7 @@ VOLUME_CHIMERA = 1
 Z_VALUES = "_cryodrgnZValues"
 WEIGHTS = "_cryodrgnWeights"
 CONFIG = "_cryodrgnConfig"
+AB_INITIO_HETERO_LABEL = "_cryodrgnAbInitio"
 
 # ab initio type
 AB_INITIO_HOMO = 0

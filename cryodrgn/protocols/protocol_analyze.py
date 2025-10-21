@@ -2,7 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              Yunior C. Fonseca Reyna (cfonseca@cnb.csic.es) [2]
-# *              Eduardo Garc�a Delgado (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -27,6 +27,7 @@
 # *
 # **************************************************************************
 
+import os
 import numpy as np
 import pyworkflow.utils as pwutils
 from pyworkflow.object import *
@@ -43,7 +44,7 @@ from ..constants import *
 class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
     """ CryoDrgn protocol to visualize latent space and generate volumes. """
 
-    _label = "cryodrgn analyze"
+    _label = "analyze results"
     _devStatus = PROD
 
     def __init__(self, **kwargs):
@@ -188,7 +189,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
         self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
-    def convertInputStep(self, epoch):
+    def convertInputStep(self):
         if not self.autoMask:
             maskFn = self.inputMask.get().getFileName()
             if pwutils.getExt(maskFn) == ".mrc":
