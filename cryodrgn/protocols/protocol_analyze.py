@@ -367,9 +367,9 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
         for volId in range(num):
             if self.hasMultLatentVars():
                 volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
-                                          id=volId)
+                                          id=volId + 1)
             else:
-                volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
+                volFn = self._getFileName(fn, epoch=self._epoch, id=volId + 1)
 
             if os.path.exists(volFn):
                 vols.append(volFn)

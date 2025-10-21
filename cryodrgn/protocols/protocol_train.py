@@ -135,7 +135,7 @@ class CryoDrgnProtTrain(ProtProcessParticles, ProtFlexBase):
                       label="Weight decay",
                       help="Weight decay for Adam optimizer")
 
-        form.addParam('doInvert', params.BooleanParam, default=False,
+        form.addParam('doInvert', params.BooleanParam, default=True,
                       condition='not doContinue',
                       expertLevel=params.LEVEL_ADVANCED,
                       label="Invert",
