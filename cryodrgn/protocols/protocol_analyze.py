@@ -2,6 +2,7 @@
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
 # *              Yunior C. Fonseca Reyna (cfonseca@cnb.csic.es) [2]
+# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -28,36 +29,30 @@
 
 import os
 import numpy as np
-from enum import Enum
-
 import pyworkflow.utils as pwutils
+from pyworkflow.object import *
 import pyworkflow.protocol.params as params
-from pyworkflow.constants import NEW
-import pyworkflow.object as pwobj
-from pwem.protocols import ProtAnalysis3D
-from pwem.objects import SetOfVolumes, Volume
-from pwem.emlib.image import ImageHandler, DT_FLOAT
-
-from cryodrgn import Plugin
-from cryodrgn.constants import (EPOCH_LAST, EPOCH_SELECTION, Z_VALUES,
-                                AB_INITIO_HOMO, CLUSTER_WARD, V3_3_2)
-from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
+from pyworkflow.constants import PROD
+import pwem.objects as emobj
+from pwem.emlib import *
+from pwem.emlib.image import ImageHandler
+from pwem.protocols import ProtProcessParticles, ProtFlexBase
+from .. import Plugin
+from ..constants import *
 
 
-class outputs(Enum):
-    Volumes = SetOfVolumes
-
-
-class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
+class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
     """ CryoDrgn protocol to visualize latent space and generate volumes. """
 
     _label = "analyze results"
-    _devStatus = NEW
-    _possibleOutputs = outputs
+    _devStatus = PROD
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def _createFilenameTemplates(self):
         """ Centralize how files are called within the protocol. """
-        out = lambda p: self.getOutputDir(f'analyze.{self._epoch}', p)
+        out = lambda p: self._getOutputDir(f'analyze.{self._epoch}', p)
 
         myDict = {
             'input_mask': self._getExtraPath("input_mask.mrc"),
@@ -76,12 +71,6 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         form.addSection(label='Input')
-        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
-                       label="Choose GPU IDs",
-                       help="GPU may have several cores. Set it to zero"
-                            " if you do not know what we are talking about."
-                            " First core index is 0, second 1 and so on."
-                            " You can use only a single GPU.")
         form.addParam('inputProt', params.PointerParam, important=True,
                       pointerClass='CryoDrgnProtTrain, CryoDrgnProtAbinitio',
                       label="Previous run to analyse")
@@ -95,17 +84,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
                       condition='inputEpoch==%d' % EPOCH_SELECTION,
                       label="Epoch number")
 
-        form.addSection('Volume generation')
-        form.addParam('doFlip', params.BooleanParam, default=False,
-                      label="Flip handedness of output volumes")
-        form.addParam('doInvert', params.BooleanParam, default=False,
-                      label="Invert contrast of output volumes")
-        form.addParam('doDownsample', params.BooleanParam, default=False,
-                      label="Downsample volumes?")
-        form.addParam('boxSize', params.IntParam, default=128,
-                      condition='doDownsample', label="New box size (px)")
-
-        form.addSection(label='Latent space')
+        form.addSection(label='Analysis')
         form.addParam('doGraphTraversal', params.BooleanParam, default=False,
                       label="Do graph traversal?",
                       help="CryoDRGN's graph traversal algorithm builds a nearest "
@@ -116,9 +95,17 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
                            "remaining on the data manifold since we don't want "
                            "to generate structures from unoccupied regions of "
                            "the latent space.")
+
+        form.addParam('doDownsample', params.BooleanParam, default=False,
+                      label="Downsample volumes?")
+
+        form.addParam('boxSize', params.IntParam, default=128,
+                      condition='doDownsample', label="New box size (px)")
+
         form.addParam('pc', params.IntParam, default=2,
                       label="Number of principal components",
                       help="Number of principal component traversals to generate.")
+
         form.addParam('ksamples', params.IntParam, default=20,
                       label='Number of K-means samples to generate',
                       help="*cryodrgn analyze* uses the k-means clustering "
@@ -128,7 +115,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
                            "regions. The goal is to provide a tractable number "
                            "of representative density maps to visually inspect.")
 
-        form.addSection(label='Landscape analysis')
+        form.addSection(label='Landscape Analysis')
         form.addParam('doLandscape', params.BooleanParam, default=False,
                       label="Perform conformational landscape analysis?",
                       help="Runs landscape analysis tool for comprehensive and "
@@ -143,32 +130,45 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         form.addParam('numVols', params.IntParam, default=500,
                       condition='doLandscape',
                       label="Number of volumes to generate")
-        group = form.addGroup('Masking',
-                              condition='doLandscape')
+
+        group = form.addGroup('Masking', condition='doLandscape')
         group.addParam('autoMask', params.BooleanParam, default=True,
                        label="Mask volumes automatically?")
+
         group.addParam('inputMask', params.PointerParam, important=True,
                        condition="not autoMask",
                        pointerClass='VolumeMask', allowsNull=True,
                        label="Custom mask")
+
         group.addParam('threshold', params.FloatParam, default=0.,
                        condition="autoMask",
                        label="Threshold for masking",
                        help="Default 0 means a half of max density value")
+
         group.addParam('dilate', params.IntParam, default=5,
                        condition="autoMask",
                        label="Dilation (px)",
                        help="Dilate initial mask by this amount")
 
-        group = form.addGroup('Clustering',
-                              condition='doLandscape')
+        group = form.addGroup('Clustering', condition='doLandscape')
         group.addParam('linkage', params.EnumParam,
                        choices=['average', 'ward'],
                        default=CLUSTER_WARD,
                        display=params.EnumParam.DISPLAY_HLIST,
                        label="Linkage for agglomerative clustering")
+
         group.addParam('numClusters', params.IntParam, default=10,
                        label="Number of clusters")
+
+        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
+                       label="Choose GPU IDs",
+                       help="GPU may have several cores. Set it to zero"
+                            " if you do not know what we are talking about."
+                            " First core index is 0, second 1 and so on."
+                            " You can use multiple GPUs - in that case"
+                            " set to i.e. *0 1 2*.")
+
+        form.addParallelSection(threads=1, mpi=1)
 
     # --------------------------- INSERT steps functions ----------------------
     def _insertAllSteps(self):
@@ -182,21 +182,36 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
         self._createFilenameTemplates()
 
-        self._insertFunctionStep(self.runAnalysisStep, self._epoch,
-                                 needsGPU=True)
+        if self.doLandscape and self.hasMultLatentVars():
+            self._insertFunctionStep(self.convertInputStep, self._epoch, needsGPU=False)
+
+        self._insertFunctionStep(self.runAnalysisStep, self._epoch, needsGPU=True)
         self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
+    def convertInputStep(self):
+        if not self.autoMask:
+            maskFn = self.inputMask.get().getFileName()
+            if pwutils.getExt(maskFn) == ".mrc":
+                pwutils.createLink(maskFn, self._getFileName("input_mask"))
+            else:
+                ih = ImageHandler()
+                ih.convert(maskFn, self._getFileName("input_mask"), DT_FLOAT)
+
     def runAnalysisStep(self, epoch):
-        pwutils.makePath(self.getOutputDir())
+        pwutils.makePath(self._getOutputDir())
+
         self._runProgram('analyze', self._getAnalyzeArgs(epoch))
+
+        pwutils.makePath(self._getOutputDir(f'landscape.{epoch}'))
+        pwutils.copyFile(self._getFileName('umaps'),
+                         self._getOutputDir(f'landscape.{epoch}/umap.pkl'))
 
         if self.doGraphTraversal and self.hasMultLatentVars():
             self._runProgram('graph_traversal', self._getGraphArgs())
             self._runProgram('eval_vol', self._getEvalArgs())
 
         if self.doLandscape and self.hasMultLatentVars():
-            self.convertInputs(epoch)
             self._runProgram('analyze_landscape', self._getLandscapeArgs(epoch))
 
     def createOutputStep(self):
@@ -206,9 +221,8 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         files, zValues = self._getVolumes()
         setOfVolumes = self._createVolumeSet(files, zValues, fn, samplingRate)
 
-        self._defineOutputs(**{outputs.Volumes.name: setOfVolumes})
-        self._defineSourceRelation(self._getInputProt()._getInputParticles(pointer=True),
-                                   setOfVolumes)
+        self._defineOutputs(outputVolumes=setOfVolumes)
+        self._defineSourceRelation(self._getInputProt()._getInputParticles(), setOfVolumes)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -244,7 +258,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             ep = self.epochNum.get() - 1
             total = self._getLastEpoch()
             if ep > total:
-                errors.append(f"You can analyse only epochs 1-{total+1}")
+                errors.append(f"You can analyse only epochs 1-{total + 1}")
 
         if self.doDownsample:
             origBox = self._getBoxSize()
@@ -266,31 +280,14 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         return errors
 
     # --------------------------- UTILS functions -----------------------------
-    def convertInputs(self, epoch):
-        # Copy analyze.epoch/umap.pkl to landscape.epoch folder
-        pwutils.makePath(self.getOutputDir(f'landscape.{epoch}'))
-        pwutils.copyFile(self._getFileName('umaps'),
-                         self.getOutputDir(f'landscape.{epoch}/umap.pkl'))
-
-        if not self.autoMask:
-            # convert mask to mrc
-            maskFn = self.inputMask.get().getFileName()
-            if pwutils.getExt(maskFn) == ".mrc":
-                pwutils.createLink(maskFn, self._getFileName("input_mask"))
-            else:
-                ih = ImageHandler()
-                ih.convert(maskFn, self._getFileName("input_mask"), DT_FLOAT)
-
     def _getAnalyzeArgs(self, epoch):
         args = [
             self._getInputProt()._getExtraPath("output"),
             f"{epoch}",
-            f"-o {self.getOutputDir(f'analyze.{epoch}')}",
+            f"-o {self._getOutputDir(f'analyze.{epoch}')}",
             f"--Apix {self._getSamplingRate()}",
             f"--device {self.gpuList.get()}",
             f"-d {self.boxSize}" if self.doDownsample else "",
-            "--flip" if self.doFlip else "",
-            "--invert" if self.doInvert else "",
             f"--ksample {self.ksamples}" if self.hasMultLatentVars() else "",
             f"--pc {self.pc}" if self.hasMultLatentVars() else ""
         ]
@@ -330,7 +327,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         args = [
             self._getInputProt()._getExtraPath("output"),
             f"{epoch}",
-            f"-o {self.getOutputDir(f'landscape.{epoch}')}",
+            f"-o {self._getOutputDir(f'landscape.{epoch}')}",
             f"--Apix {self._getSamplingRate()}",
             f"--device {self.gpuList.get()}",
             "--skip-umap",
@@ -338,7 +335,6 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             f"--linkage {self.getEnumText('linkage')}",
             f"-M {self.numClusters}",
             f"-d {self.boxSize if self.doDownsample else self._getBoxSize()}",
-            "--flip" if self.doFlip else "",
             f"--pc-dim {min(self.numVols, 20)}"
         ]
 
@@ -371,9 +367,9 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         for volId in range(num):
             if self.hasMultLatentVars():
                 volFn = self._getFileName(fn, ksamples=num, epoch=self._epoch,
-                                          id=volId)
+                                          id=volId + 1)
             else:
-                volFn = self._getFileName(fn, epoch=self._epoch, id=volId)
+                volFn = self._getFileName(fn, epoch=self._epoch, id=volId + 1)
 
             if os.path.exists(volFn):
                 vols.append(volFn)
@@ -402,7 +398,7 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         :return: a set of volumes
         """
         pwutils.cleanPath(path)
-        volSet = SetOfVolumes(filename=path)
+        volSet = emobj.SetOfVolumes(filename=path)
         volSet.setSamplingRate(samplingRate)
         volSet.setObjComment("k-means sample volumes")
         volId = 0
@@ -411,9 +407,9 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
             zValues = [[i] for i in zValues]
 
         for volFn in files:
-            vol = Volume()
+            vol = emobj.Volume()
             vol.setFileName(volFn)
-            vector = pwobj.CsvList()
+            vector = CsvList()
             # We assume that each row "i" of z_values corresponds to each
             # volumes with ID "i"
             volZValues = zValues[volId]
@@ -427,17 +423,24 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
 
         return volSet
 
+    def _runProgram(self, program, args):
+        gpus = ','.join(str(i) for i in self.getGpuList())
+        self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
+
     def _getSamplingRate(self):
         return self._getInputProt()._getInputParticles().getSamplingRate()
 
     def _getBoxSize(self):
         return self._getInputProt()._getInputParticles().getXDim()
 
+    def _getOutputDir(self, *paths):
+        return self._getExtraPath("output", *paths)
+
     def _getOutputSampling(self):
         if self.doDownsample:
             origBox = self._getBoxSize()
             newBox = self.boxSize.get()
-            return origBox/newBox * self._getSamplingRate()
+            return origBox / newBox * self._getSamplingRate()
         else:
             return self._getSamplingRate()
 
@@ -448,8 +451,14 @@ class CryoDrgnProtAnalyze(ProtAnalysis3D, CryoDrgnProtBase):
         else:
             return inputProt.zDim.get() > 1
 
-    def _getLastEpoch(self):
-        return self._getInputProt()._getLastEpoch()
-
     def _getInputProt(self):
         return self.inputProt.get()
+
+    def _getLastEpoch(self):
+        outDir = self._getInputProt()._getExtraPath("output")
+        files = [file for file in os.listdir(outDir) if file.startswith("weights")]
+        print(os.path.basename(files[0]))
+        if len(files) != 0:
+            epochs = [os.path.basename(file).split('.')[1] for file in files]
+            lastEpoch = max([int(epoch) for epoch in epochs if epoch != "pkl"])
+        return lastEpoch

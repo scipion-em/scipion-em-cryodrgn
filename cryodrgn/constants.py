@@ -32,9 +32,10 @@ def getCryoDrgnEnvName(version):
 V3_3_2 = "3.3.2"
 V3_4_0 = "3.4.0"
 V3_4_4 = "3.4.4"
+V3_5_2 = "3.5.2"
 
-VERSIONS = [V3_3_2, V3_4_0, V3_4_4]
-CRYODRGN_DEFAULT_VER_NUM = V3_4_4
+VERSIONS = [V3_3_2, V3_4_0, V3_4_4, V3_5_2]
+CRYODRGN_DEFAULT_VER_NUM = V3_5_2
 
 DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
@@ -51,6 +52,7 @@ VOLUME_CHIMERA = 1
 Z_VALUES = "_cryodrgnZValues"
 WEIGHTS = "_cryodrgnWeights"
 CONFIG = "_cryodrgnConfig"
+AB_INITIO_HETERO_LABEL = "_cryodrgnAbInitio"
 
 # ab initio type
 AB_INITIO_HOMO = 0
