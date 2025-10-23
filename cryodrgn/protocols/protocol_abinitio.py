@@ -1,7 +1,7 @@
 # **************************************************************************
 # *
 # * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
-# *              Eduardo Garc�a Delgado (eduardo.garcia@cnb.csic.es) [2]
+# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
 # * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
 # * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
@@ -109,19 +109,23 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
                            'for D=128 images + large architecture, and ~47 '
                            'min per epoch for D=256 images + large architecture.')
 
-        group = form.addGroup('Encoder', condition='not doContinue', expertLevel=params.LEVEL_ADVANCED)
+        group = form.addGroup('Encoder', condition='not doContinue and protType==%d' % AB_INITIO_HETERO, expertLevel=params.LEVEL_ADVANCED)
         group.addParam('qLayers', params.IntParam, default=3,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
                        expertLevel=params.LEVEL_ADVANCED,
                        label='Number of hidden layers')
         group.addParam('qDim', params.IntParam, default=1024,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
                        expertLevel=params.LEVEL_ADVANCED,
                        label='Number of nodes in hidden layers')
 
-        group = form.addGroup('Decoder', condition='not doContinue', expertLevel=params.LEVEL_ADVANCED)
+        group = form.addGroup('Decoder', condition='not doContinue and protType==%d' % AB_INITIO_HETERO, expertLevel=params.LEVEL_ADVANCED)
         group.addParam('pLayers', params.IntParam, default=3,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
                        expertLevel=params.LEVEL_ADVANCED,
                        label='Number of hidden layers')
         group.addParam('pDim', params.IntParam, default=1024,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
                        expertLevel=params.LEVEL_ADVANCED,
                        label='Number of nodes in hidden layers')
 
@@ -296,15 +300,29 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
             f"--ctf {self._getFileName('input_ctfs')}",
             f"-o {self._getOutputDir()}",
             f"-n {self.numEpochs}",
+            f"--lr {self.learningRate}",
+            f"--wd {self.weightDecay}",
+            f"--batch-size {self.batchSize}",
             f"--t-extent {run.searchRange}",
             "--load latest" if self.doContinue else "",
             f"--datadir {self._getExtraPath('input')}"
         ]
 
+        if run.doWindow:
+            args.append(f"--window-r {run.winSize}")
+
+        if not run.doInvert:  # neg. stain only
+            args.append('--uninvert-data')
+
         if protType == AB_INITIO_HETERO:
             args.extend([
                 f"--zdim {run.zDim}",
+                f"--enc-mask -1",
                 f"--max-threads {self.numberOfThreads}",
+                f"--enc-layers {run.qLayers}",
+                f"--enc-dim {run.qDim}",
+                f"--dec-layers {run.pLayers}",
+                f"--dec-dim {run.pDim}"
             ])
 
             if len(self.getGpuList()) > 1:  # only for hetero
@@ -334,7 +352,7 @@ class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
 
     def _runProgram(self, program, args):
         gpus = ','.join(str(i) for i in self.getGpuList())
-        self.runJob(Plugin.getProgram(program, gpus), ' '.join(args))
+        self.runJob(Plugin.getProgram(program, gpus), ' '.join(args), env=pwutils.Environ())
 
     def _getParticlesZvalues(self):
         """

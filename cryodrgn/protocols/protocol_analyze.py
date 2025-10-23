@@ -183,7 +183,7 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
         self._createFilenameTemplates()
 
         if self.doLandscape and self.hasMultLatentVars():
-            self._insertFunctionStep(self.convertInputStep, self._epoch, needsGPU=False)
+            self._insertFunctionStep(self.convertInputStep, needsGPU=False)
 
         self._insertFunctionStep(self.runAnalysisStep, self._epoch, needsGPU=True)
         self._insertFunctionStep(self.createOutputStep, needsGPU=False)
