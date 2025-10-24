@@ -238,7 +238,7 @@ class CryoDrgnProtTrain(ProtProcessParticles, ProtFlexBase):
             f"-n {self.numEpochs}",
             f"--lr {self.learningRate}",
             f"--wd {self.weightDecay}",
-            f"--batch-size {self.batchSize}"
+            f"--batch-size {self.batchSize}",
             f"--max-threads {self.numberOfThreads}",
             f"--enc-layers {run.qLayers}",
             f"--enc-dim {run.qDim}",
