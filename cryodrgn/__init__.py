@@ -27,7 +27,7 @@
 import os
 import pwem
 import pyworkflow.utils as pwutils
-from pyworkflow import Config
+from pyworkflow import Config, TOMO
 
 from .constants import *
 
@@ -40,6 +40,7 @@ _logo = "cryodrgn_logo.png"
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-cryodrgn"
     _supportedVersions = VERSIONS
+    _processingField = [TOMO]
 
     @classmethod
     def _defineVariables(cls):
