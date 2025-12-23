@@ -209,7 +209,7 @@ class CryoDrgnViewer(EmProtocolViewer):
         """ Create a chimera script to visualize selected volumes. """
         prot = self.protocol
         if key == 'kmeans':
-            vols = list(prot.Volumes.getFiles())
+            vols = list(prot.outputVolumes.getFiles())
         elif key == 'pca':
             vols = self._getVolumesNamesPCA()
         elif key == 'graph':
