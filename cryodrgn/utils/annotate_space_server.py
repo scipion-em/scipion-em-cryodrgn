@@ -63,5 +63,4 @@ class HeterogeneityProgramInterface:
         latent = torch.from_numpy(latent.astype(np.float32)).to(self.device)
         for idx, zz in enumerate(latent):
             self.model.eval_volume(self.lattice.coords, self.lattice.D, self.lattice.extent, self.norm, zz)
-        out_mrc = "{}/{}{:03d}.mrc".format(args.o, args.prefix, i)
-        write_mrc(out_mrc, np.array(vol.cpu()).astype(np.float32), Apix=self.Apix)
+            write_mrc(self.path_template.format(idx + 1), np.array(vol.cpu()).astype(np.float32), Apix=self.Apix)
