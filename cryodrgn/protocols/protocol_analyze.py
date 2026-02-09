@@ -29,6 +29,7 @@
 
 import os
 import numpy as np
+import pickle
 import pyworkflow.utils as pwutils
 from pyworkflow.object import *
 import pyworkflow.protocol.params as params
@@ -71,6 +72,10 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
         form.addSection(label='Input')
+        form.addParam('inputParticles', params.PointerParam,
+                      pointerClass="SetOfParticles, SetOfParticlesFlex",
+                      label='Input Particles')
+
         form.addParam('inputProt', params.PointerParam, important=True,
                       pointerClass='CryoDrgnProtTrain, CryoDrgnProtAbinitio',
                       label="Previous run to analyse")
@@ -96,26 +101,6 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
                            "to generate structures from unoccupied regions of "
                            "the latent space.")
 
-        form.addParam('doDownsample', params.BooleanParam, default=False,
-                      label="Downsample volumes?")
-
-        form.addParam('boxSize', params.IntParam, default=128,
-                      condition='doDownsample', label="New box size (px)")
-
-        form.addParam('pc', params.IntParam, default=2,
-                      label="Number of principal components",
-                      help="Number of principal component traversals to generate.")
-
-        form.addParam('ksamples', params.IntParam, default=20,
-                      label='Number of K-means samples to generate',
-                      help="*cryodrgn analyze* uses the k-means clustering "
-                           "algorithm to partition the latent space into "
-                           "regions (by default k=20 regions), and generate a "
-                           "density map from the center of each of these "
-                           "regions. The goal is to provide a tractable number "
-                           "of representative density maps to visually inspect.")
-
-        form.addSection(label='Landscape Analysis')
         form.addParam('doLandscape', params.BooleanParam, default=False,
                       label="Perform conformational landscape analysis?",
                       help="Runs landscape analysis tool for comprehensive and "
@@ -143,12 +128,14 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
         group.addParam('threshold', params.FloatParam, default=0.,
                        condition="autoMask",
                        label="Threshold for masking",
-                       help="Default 0 means a half of max density value")
+                       help="Default 0 means a half of max density value",
+                       expertLevel=params.LEVEL_ADVANCED)
 
         group.addParam('dilate', params.IntParam, default=5,
                        condition="autoMask",
                        label="Dilation (px)",
-                       help="Dilate initial mask by this amount")
+                       help="Dilate initial mask by this amount",
+                       expertLevel=params.LEVEL_ADVANCED)
 
         group = form.addGroup('Clustering', condition='doLandscape')
         group.addParam('linkage', params.EnumParam,
@@ -159,6 +146,27 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
 
         group.addParam('numClusters', params.IntParam, default=10,
                        label="Number of clusters")
+
+        form.addParam('doDownsample', params.BooleanParam, default=False,
+                      label="Downsample volumes?")
+
+        form.addParam('boxSize', params.IntParam, default=128,
+                      condition='doDownsample', label="New box size (px)")
+
+        form.addParam('pc', params.IntParam, default=2,
+                      label="Number of principal components",
+                      help="Number of principal component traversals to generate.",
+                      expertLevel=params.LEVEL_ADVANCED)
+
+        form.addParam('ksamples', params.IntParam, default=20,
+                      label='Number of K-means samples to generate',
+                      help="*cryodrgn analyze* uses the k-means clustering "
+                           "algorithm to partition the latent space into "
+                           "regions (by default k=20 regions), and generate a "
+                           "density map from the center of each of these "
+                           "regions. The goal is to provide a tractable number "
+                           "of representative density maps to visually inspect.",
+                      expertLevel=params.LEVEL_ADVANCED)
 
         form.addHidden(params.GPU_LIST, params.StringParam, default='0',
                        label="Choose GPU IDs",
@@ -181,6 +189,9 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             self._epoch = self.epochNum.get() - 1
 
         self._createFilenameTemplates()
+
+        self.weights = self._getInputProt()._getFileName('weights_final')
+        self.config = self._getInputProt()._getFileName('config')
 
         if self.doLandscape and self.hasMultLatentVars():
             self._insertFunctionStep(self.convertInputStep, needsGPU=False)
@@ -215,7 +226,30 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             self._runProgram('analyze_landscape', self._getLandscapeArgs(epoch))
 
     def createOutputStep(self):
-        """ Create a set of k-means sample volumes with z_values. """
+        # Creating a set of particles with z_values.
+        inSet = self._getInputParticles()
+        zIterValues = iter(self._getParticlesZvalues())
+
+        outSet = self._createSetOfParticlesFlex(progName=CRYODRGN)
+        outSet.copyInfo(inSet)
+        outSet.setHasCTF(inSet.hasCTF())
+        outSet.getFlexInfo().setProgName(CRYODRGN)
+
+        for particle, zValue in zip(inSet, zIterValues):
+            outParticle = emobj.ParticleFlex(progName=CRYODRGN)
+            outParticle.copyInfo(particle)
+            outParticle.getFlexInfo().setProgName(CRYODRGN)
+            outParticle.setZFlex(list(zValue))
+            outSet.append(outParticle)
+
+        outSet.getFlexInfo().setAttr(WEIGHTS, String(self.weights))
+        outSet.getFlexInfo().setAttr(CONFIG, String(self.config))
+        outSet.getFlexInfo().setAttr(ZDIM, Integer(self._getInputProt().zDim))
+
+        self._defineOutputs(outputParticles=outSet)
+        self._defineSourceRelation(inSet, outSet)
+
+        # Create a set of k-means sample volumes with z_values.
         fn = self._getExtraPath('volumes.sqlite')
         samplingRate = self._getOutputSampling()
         files, zValues = self._getVolumes()
@@ -291,26 +325,15 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             f"--ksample {self.ksamples}" if self.hasMultLatentVars() else "",
             f"--pc {self.pc}" if self.hasMultLatentVars() else ""
         ]
-
         return args
 
     def _getGraphArgs(self):
         args = [
             self._getInputProt()._getFileName('z_final'),
-            f"--anchors $(cat {self._getFileName('kmeans_centers', ksamples=self.ksamples)})"
+            f"--anchors {self._getFileName('kmeans_centers', ksamples=self.ksamples)}",
+            f"--outtxt {self._getFileName('graph_pathZ')}",
+            f"--outind {self._getFileName('graph_path')}"
         ]
-
-        if Plugin.versionGE(V3_3_2):
-            args.extend([
-                f"--outtxt {self._getFileName('graph_pathZ')}",
-                f"--outind {self._getFileName('graph_path')}"
-            ])
-        else:
-            args.extend([
-                f"-o {self._getFileName('graph_path')}",
-                f"--out-z {self._getFileName('graph_pathZ')}"
-            ])
-
         return args
 
     def _getEvalArgs(self):
@@ -320,7 +343,6 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             f"--zfile {self._getFileName('graph_pathZ')}",
             f"-o {self._getFileName('graph_vols')}"
         ]
-
         return args
 
     def _getLandscapeArgs(self, epoch):
@@ -346,8 +368,15 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
 
         else:
             args.append(f"--mask {self._getFileName('input_mask')}")
-
         return args
+
+    def _getParticlesZvalues(self):
+        """
+        Read from z.npz file the particles z_values
+        """
+        zfile = self._getInputProt()._getFileName('z_final')
+        zValues = pickle.load(open(zfile, "rb"))
+        return zValues
 
     def _getVolumes(self):
         """ Returns a list of volume names and their zValues. """
@@ -422,6 +451,9 @@ class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
             volId += 1
 
         return volSet
+
+    def _getInputParticles(self):
+        return self.inputParticles.get()
 
     def _runProgram(self, program, args):
         gpus = ','.join(str(i) for i in self.getGpuList())

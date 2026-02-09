@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -53,6 +55,7 @@ VOLUME_CHIMERA = 1
 Z_VALUES = "_cryodrgnZValues"
 WEIGHTS = "_cryodrgnWeights"
 CONFIG = "_cryodrgnConfig"
+ZDIM = "_cryodrgnZDim"
 AB_INITIO_HETERO_LABEL = "_cryodrgnAbInitio"
 
 # ab initio type

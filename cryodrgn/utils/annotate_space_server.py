@@ -27,8 +27,7 @@
 
 import numpy as np
 import torch
-import torch.nn as nn
-from cryodrgn import config
+from cryodrgn.config import load
 from cryodrgn.commands.eval_vol import reset_origin, postprocess_vol
 from cryodrgn.models import HetOnlyVAE, load_decoder
 from cryodrgn.source import write_mrc
@@ -41,26 +40,22 @@ class HeterogeneityProgramInterface:
     def prepare_heterogeneity_program(self, **kwargs) -> object:
         gpu_id = kwargs.pop("gpu_id", None)
         config = kwargs.pop("config", None)
-        load = kwargs.pop("load", None)
+        cfg = load(config)
+        weights = kwargs.pop("load", None)
+
         self.device = "cpu" if gpu_id is None else 'cuda:' + str(int(gpu_id))
-
-        cfg = config.load(config)
-
-        D = cfg["lattice_args"]["D"]
-        zdim = cfg["model_args"]["zdim"]
         self.norm = [float(x) for x in cfg["dataset_args"]["norm"]]
-        self.Apix = cfg["model_args"]["Apix"]
 
         if "players" in cfg["model_args"]:
-            model, self.lattice = HetOnlyVAE.load(cfg, load, device=self.device)
+            model, self.lattice = HetOnlyVAE.load(cfg, weights, device=self.device)
             decoder = model.decoder
         else:
-            decoder, self.lattice = load_decoder(cfg, load, device=self.device)
+            decoder, self.lattice = load_decoder(cfg, weights, device=self.device)
         decoder.eval()
         return decoder
 
     def decode_state_from_latent(self, latent: np.array) -> None:
         latent = torch.from_numpy(latent.astype(np.float32)).to(self.device)
         for idx, zz in enumerate(latent):
-            self.model.eval_volume(self.lattice.coords, self.lattice.D, self.lattice.extent, self.norm, zz)
-            write_mrc(self.path_template.format(idx + 1), np.array(vol.cpu()).astype(np.float32), Apix=self.Apix)
+            vol = self.model.eval_volume(self.lattice.coords, self.lattice.D, self.lattice.extent, self.norm, zz)
+            write_mrc(self.path_template.format(idx + 1), np.array(vol.cpu()).astype(np.float32))
