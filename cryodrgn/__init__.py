@@ -114,7 +114,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getProgram(cls, program, gpus='0'):
         """ Create cryoDRGN command line. """
-        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
+        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s LD_LIBRARY_PATH="$CONDA_PREFIX/lib" cryodrgn %s' % (
             cls.getActivationCmd(), gpus, program)
 
         return fullProgram

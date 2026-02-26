@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              Eduardo García (eduardo.garcia@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Biocomputacion, Centro Nacional de Biotecnologia, CSIC (CNB-CSIC)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -33,9 +35,10 @@ V3_3_2 = "3.3.2"
 V3_4_0 = "3.4.0"
 V3_4_4 = "3.4.4"
 V3_5_2 = "3.5.2"
+V3_5_4 = "3.5.4"
 
-VERSIONS = [V3_3_2, V3_4_0, V3_4_4, V3_5_2]
-CRYODRGN_DEFAULT_VER_NUM = V3_5_2
+VERSIONS = [V3_3_2, V3_4_0, V3_4_4, V3_5_2, V3_5_4]
+CRYODRGN_DEFAULT_VER_NUM = V3_5_4
 
 DEFAULT_ENV_NAME = getCryoDrgnEnvName(CRYODRGN_DEFAULT_VER_NUM)
 DEFAULT_ACTIVATION_CMD = 'conda activate ' + DEFAULT_ENV_NAME
@@ -52,6 +55,7 @@ VOLUME_CHIMERA = 1
 Z_VALUES = "_cryodrgnZValues"
 WEIGHTS = "_cryodrgnWeights"
 CONFIG = "_cryodrgnConfig"
+ZDIM = "_cryodrgnZDim"
 AB_INITIO_HETERO_LABEL = "_cryodrgnAbInitio"
 
 # ab initio type
