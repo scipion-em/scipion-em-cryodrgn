@@ -27,7 +27,7 @@
 import os
 import pwem
 import pyworkflow.utils as pwutils
-from pyworkflow import Config
+from pyworkflow import Config, TOMO
 
 from .constants import *
 
@@ -40,6 +40,7 @@ _logo = "cryodrgn_logo.png"
 class Plugin(pwem.Plugin):
     _url = "https://github.com/scipion-em/scipion-em-cryodrgn"
     _supportedVersions = VERSIONS
+    _processingField = [TOMO]
 
     @classmethod
     def _defineVariables(cls):
@@ -113,7 +114,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def getProgram(cls, program, gpus='0'):
         """ Create cryoDRGN command line. """
-        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s cryodrgn %s' % (
+        fullProgram = '%s && CUDA_VISIBLE_DEVICES=%s LD_LIBRARY_PATH="$CONDA_PREFIX/lib" cryodrgn %s' % (
             cls.getActivationCmd(), gpus, program)
 
         return fullProgram

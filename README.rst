@@ -91,3 +91,34 @@ References
 2. CryoDRGN: Reconstruction of heterogeneous cryo-EM structures using neural networks. Ellen D. Zhong, Tristan Bepler, Bonnie Berger, Joseph H. Davis. Nature Methods 18(2), 2021, 176-182. DOI 10.1038/s41592-020-01049-4
 3. Reconstructing continuous distributions of 3D protein structure from cryo-EM images. Ellen D. Zhong, Tristan Bepler, Joseph H. Davis, Bonnie Berger. ICLR 2020, https://arxiv.org/abs/1909.05215
 4. CryoDRGN2: Ab Initio Neural Reconstruction of 3D Protein Structures From Real Cryo-EM Images. Ellen D. Zhong, Adam Lerer, Joseph H. Davis, Bonnie Berger; Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), 2021, pp. 4066-4075. https://openaccess.thecvf.com/content/ICCV2021/html/Zhong_CryoDRGN2_Ab_Initio_Neural_Reconstruction_of_3D_Protein_Structures_From_ICCV_2021_paper.html
+
+Known issues
+-----------
+
+PyTorch versions 2.5.0 and 2.5.1 may raise the following error when executing CryoDrgn:
+
+.. code-block::
+
+    ImportError: Undefined symbol in libcusparse.so.12 with PyTorch 2.5.1
+
+If this is your case, we recommend downgrading PyTorch to version 2.4.1 using the following command:
+
+.. code-block::
+
+    conda activate cryodrgn-3.5.2 && pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
+
+The previous command assumes you have currently installed the latest version compatible with this plugin. You can check your current installed version with the command:
+
+.. code-block::
+
+    scipion3 installb
+
+Assuming that you have created an alias named ``scipion3`` to execute Scipion.
+
+If you want to keep on using your current installation, you can activate CryoDrgn conda environment with:
+
+.. code-block::
+
+    conda activate cryodrgn-x.y.z && pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
+
+Where ``x.y.z`` refers to the CryoDrgn version currenlty installed and reported by ``scipion3 installb`` command.

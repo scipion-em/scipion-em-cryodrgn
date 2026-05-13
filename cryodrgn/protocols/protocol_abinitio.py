@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [1]
+# *              Eduardo García Delgado (eduardo.garcia@cnb.csic.es) [2]
 # *
-# * MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [1] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * [2] Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -23,58 +25,389 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from enum import Enum
-
-from pyworkflow.constants import PROD
+import pickle
+from pwem.constants import ALIGN_PROJ, ALIGN_NONE
+import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
-import pyworkflow.object as pwobj
-from pwem.objects import SetOfParticlesFlex, Volume
+from pyworkflow.plugin import Domain
+import pwem.objects as emobj
+from pyworkflow.constants import PROD
+from pwem.protocols import ProtProcessParticles, ProtFlexBase
+from .. import Plugin
+from ..constants import *
 
-from cryodrgn.constants import AB_INITIO_HOMO, AB_INITIO_HETERO
-from cryodrgn.protocols.protocol_base import CryoDrgnProtBase
+convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
-
-class outputs(Enum):
-    Particles = SetOfParticlesFlex
-    Volumes = Volume
-
-
-class CryoDrgnProtAbinitio(CryoDrgnProtBase):
+class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
     """
-    Protocol to run ab-initio reconstruction with cryoDRGN neural network.
+    Performs ab initio three-dimensional reconstruction of cryo-EM particle datasets
+    using the cryoDRGN neural network framework. The protocol supports both
+    homogeneous and heterogeneous reconstruction strategies, enabling users to
+    recover either a single consensus structure or a continuous distribution of
+    conformational states directly from experimental particle images.
+
+    AI Generated:
+
+    Ab Initio Reconstruction (CryoDrgnProtAbinitio) - User Manual
+        Overview
+
+        The Ab Initio Reconstruction protocol provides a neural-network-based
+        strategy for reconstructing cryo-EM structures without requiring an
+        initial reference map. Its main purpose is to allow biological users
+        to discover structural organization directly from particle images,
+        including the possibility of recovering continuous conformational
+        variability. This approach is particularly useful when little prior
+        structural information is available or when the dataset is expected
+        to contain heterogeneous molecular states.
+
+        In practical cryo-EM workflows, the protocol can be used as an
+        exploratory reconstruction tool, as a starting point for downstream
+        refinement, or as a framework for studying structural flexibility.
+        Depending on the selected mode, the method can either generate a
+        single global reconstruction representing the dominant structure or
+        characterize a heterogeneous conformational landscape through latent
+        variables.
+
+        Homogeneous and Heterogeneous Reconstruction
+
+        The protocol supports two biologically distinct reconstruction modes.
+        Homogeneous reconstruction assumes that all particles correspond to
+        a single structural state. This mode is appropriate for stable,
+        rigid complexes with limited conformational variability. In this
+        scenario, the protocol progressively reconstructs a consensus volume
+        through iterative optimization across training epochs.
+
+        Heterogeneous reconstruction is intended for systems exhibiting
+        continuous or discrete conformational variability. Instead of forcing
+        all particles into a single structure, the protocol learns a latent
+        representation describing structural diversity. This strategy is
+        especially valuable for flexible proteins, molecular machines,
+        membrane complexes, and assemblies undergoing functional motions.
+
+        From a biological perspective, heterogeneous reconstruction allows
+        the exploration of conformational continua rather than restricting
+        analysis to a small number of discrete classes. This can reveal
+        intermediate states that are difficult to identify using traditional
+        classification workflows.
+
+        Input Data and Experimental Considerations
+
+        The protocol requires a set of cryo-EM particles together with
+        associated contrast transfer function information. Particle quality
+        strongly influences reconstruction reliability. Datasets containing
+        severe contamination, strong preferred orientation, or inaccurate
+        particle picking may produce unstable or biologically ambiguous
+        reconstructions.
+
+        Projection alignment information can optionally be incorporated when
+        available. Providing reliable alignment estimates may improve
+        convergence and accelerate optimization, particularly in challenging
+        datasets. However, the protocol is also capable of operating in more
+        exploratory situations where orientation information is incomplete or
+        uncertain.
+
+        For biological interpretation, it is generally advisable to begin
+        with carefully curated particles and to ensure that voxel size and
+        particle box dimensions are physically meaningful and internally
+        consistent.
+
+        Latent Space Representation
+
+        In heterogeneous reconstruction mode, the protocol models structural
+        variability through a latent space representation. Each particle is
+        associated with latent coordinates that describe its position within
+        the conformational landscape. Biologically, nearby positions in this
+        latent space are expected to correspond to structurally related
+        molecular states.
+
+        The dimensionality of the latent representation is one of the most
+        important conceptual parameters. Smaller dimensions simplify the
+        conformational landscape and may improve interpretability, while
+        larger dimensions allow more complex structural variability to be
+        represented. Excessively large latent spaces, however, may capture
+        noise instead of biologically meaningful motions.
+
+        In practice, moderate latent dimensions are often preferred during
+        initial exploratory analysis. Once the dataset behavior becomes
+        clearer, additional experiments with larger dimensions can be used
+        to investigate more subtle conformational changes.
+
+        Neural Network Architecture and Training
+
+        The protocol allows control over encoder and decoder network
+        complexity through the number of layers and hidden dimensions.
+        Larger architectures may capture more detailed structural variability
+        but require increased computational resources and larger datasets to
+        train reliably.
+
+        The number of training epochs determines how many optimization cycles
+        are performed. Insufficient training may produce underdeveloped
+        reconstructions, whereas excessive training can increase runtime and
+        potentially lead to overfitting. The optimal balance depends on
+        particle count, structural complexity, and image quality.
+
+        Batch size, learning rate, and weight decay further influence
+        optimization stability. For most biological users, default values
+        provide a suitable starting point, while advanced users may tune
+        these parameters when dealing with unusually large, noisy, or highly
+        heterogeneous datasets.
+
+        Particle Preprocessing and Masking
+
+        Several preprocessing options are available to improve training
+        behavior. Input particles may be intensity inverted when necessary,
+        which is particularly important for datasets whose contrast
+        convention differs from the assumptions of the reconstruction
+        framework.
+
+        Circular masking can also be applied to suppress peripheral noise and
+        solvent regions. This is especially useful for relatively compact
+        particles where background regions contribute little biological
+        information. Choosing an excessively restrictive mask, however, may
+        remove flexible domains or peripheral regions that are structurally
+        important.
+
+        Translational search ranges define how broadly particle shifts are
+        explored during optimization. Small ranges are efficient for well
+        centered particles, while larger ranges may help compensate for
+        imperfect centering during particle extraction.
+
+        Continuing Previous Training Runs
+
+        The protocol supports continuation of previously completed training
+        sessions. This capability is particularly valuable when additional
+        optimization is needed after an initial exploratory run or when
+        computational limits require training to be split across multiple
+        sessions.
+
+        Continuing training preserves the previously learned reconstruction
+        and latent representation while extending optimization for additional
+        epochs. From a biological standpoint, this allows users to refine
+        difficult datasets progressively without restarting the entire
+        process.
+
+        Outputs and Biological Interpretation
+
+        In heterogeneous mode, the protocol produces a set of particles
+        enriched with latent coordinates describing conformational variability.
+        These latent representations can later be analyzed to identify
+        conformational trajectories, clusters, or continuous motions within
+        the dataset.
+
+        In homogeneous mode, the protocol generates a sequence of
+        reconstructed volumes corresponding to different stages of training.
+        These intermediate reconstructions allow users to monitor convergence
+        and assess reconstruction stability over time.
+
+        The final outputs may serve as starting points for downstream
+        refinement, conformational analysis, variability exploration, or
+        structural interpretation. Careful biological validation remains
+        essential, particularly when interpreting subtle conformational
+        differences recovered from heterogeneous datasets.
+
+        Practical Recommendations
+
+        For exploratory studies, it is often beneficial to begin with smaller
+        particle box sizes and moderate latent dimensions to reduce
+        computational cost and improve training stability. Once promising
+        structural behavior is identified, higher-resolution experiments can
+        be performed using refined parameters.
+
+        Stable and relatively rigid complexes are usually well suited for
+        homogeneous reconstruction, while flexible molecular assemblies often
+        benefit significantly from heterogeneous analysis. When uncertainty
+        exists regarding dataset variability, exploratory heterogeneous runs
+        can help determine whether conformational diversity is present.
+
+        Visual inspection of reconstructions, latent organization, and
+        particle distributions should always accompany quantitative analysis.
+        Neural-network-based reconstructions can reveal biologically relevant
+        variability, but they may also amplify dataset imperfections if
+        particle quality is poor.
+
+        Final Perspective
+
+        For many cryo-EM studies, ab initio neural reconstruction represents
+        more than a computational initialization step. It provides a direct
+        framework for discovering structural organization and conformational
+        behavior from experimental images without relying on predefined
+        structural assumptions. Careful parameter selection, thoughtful
+        interpretation of latent variability, and rigorous biological
+        validation are essential for obtaining meaningful and reliable
+        structural insights.
     """
-    _label = 'training ab initio'
+    _label = 'training ab-initio'
     _devStatus = PROD
-    _possibleOutputs = outputs
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def _createFilenameTemplates(self):
+        """ Centralize how files are called within the protocol. """
+        myDict = {
+            'input_parts': self._getExtraPath('input_particles.star'),
+            'input_poses': self._getExtraPath('poses.pkl'),
+            'input_ctfs': self._getExtraPath('ctf.pkl'),
+            'z': self._getOutputDir('z.%(epoch)d.pkl'),
+            'z_final': self._getOutputDir('z.pkl'),
+            'weights': self._getOutputDir('weights.%(epoch)d.pkl'),
+            'weights_final': self._getOutputDir('weights.pkl'),
+            'config': self._getOutputDir('config.yaml')
+        }
+        self._updateFilenamesDict(myDict)
 
     # --------------------------- DEFINE param functions ----------------------
     def _defineParams(self, form):
-        CryoDrgnProtBase._defineParams(self, form)
-        form.getParam('numEpochs').default = pwobj.Integer(30)
-        form.getParam('zDim').default = pwobj.Integer(8)
+        form.addSection(label='Input')
+        form.addParam('doContinue', params.BooleanParam, default=False,
+                      label="Continue previous run?",
+                      help="Training will resume from the latest epoch.")
 
-    def _defineAdvancedParams(self, form):
+        form.addParam('continueRun', params.PointerParam,
+                      condition='doContinue', important=True,
+                      pointerClass='CryoDrgnProtTrain, CryoDrgnProtAbinitio',
+                      label="Previous run", allowsNull=True)
+
+        form.addParam('inputParticles', params.PointerParam,
+                      pointerClass='SetOfParticles',
+                      condition='not doContinue',
+                      label="Input particles", important=True,
+                      help='Select a set of particles (with CTF)')
+
+        form.addSection(label='Training')
         form.addParam('protType', params.EnumParam,
                       condition='not doContinue',
                       choices=['homogeneous', 'heterogeneous'],
                       default=AB_INITIO_HETERO,
                       display=params.EnumParam.DISPLAY_HLIST,
-                      label='Ab initio type')
+                      label='Ab-initio type')
 
-        form.addSection(label='Advanced')
+        form.addParam('zDim', params.IntParam, default=8,
+                      condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
+                      validators=[params.Positive],
+                      label='Dimension of latent variable',
+                      help='It is recommended to first train on lower '
+                           'resolution images (e.g. D=128) with '
+                           '--zdim 1 and with --zdim 10 using the '
+                           'default architecture (fast).')
+
+        form.addParam('numEpochs', params.IntParam, default=20,
+                      label='Number of epochs',
+                      help='The number of epochs refers to the number '
+                           'of full passes through the dataset for '
+                           'training, and should be modified depending '
+                           'on the number of particles in the dataset. '
+                           'For a 100k particle dataset, the above '
+                           'settings required ~6 min per epoch for D=128 '
+                           'images + default architecture, ~12 min/epoch '
+                           'for D=128 images + large architecture, and ~47 '
+                           'min per epoch for D=256 images + large architecture.')
+
+        group = form.addGroup('Encoder', condition='not doContinue and protType==%d' % AB_INITIO_HETERO, expertLevel=params.LEVEL_ADVANCED)
+        group.addParam('qLayers', params.IntParam, default=3,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label='Number of hidden layers')
+        group.addParam('qDim', params.IntParam, default=1024,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label='Number of nodes in hidden layers')
+
+        group = form.addGroup('Decoder', condition='not doContinue and protType==%d' % AB_INITIO_HETERO, expertLevel=params.LEVEL_ADVANCED)
+        group.addParam('pLayers', params.IntParam, default=3,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label='Number of hidden layers')
+        group.addParam('pDim', params.IntParam, default=1024,
+                       condition='not doContinue and protType==%d' % AB_INITIO_HETERO,
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label='Number of nodes in hidden layers')
+
+        form.addSection(label='Network parameters')
+        form.addParam('batchSize', params.IntParam, default=8,
+                      condition='not doContinue',
+                      label="Batch size",
+                      help="Minibatch size for training")
+
+        form.addParam('learningRate', params.FloatParam, default=0.0001,
+                      condition='not doContinue',
+                      label="Learning rate",
+                      help="Learning rate in Adam optimizer")
+
+        form.addParam('weightDecay', params.FloatParam, default=0.0,
+                      condition='not doContinue',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Weight decay",
+                      help="Weight decay for Adam optimizer")
+
+        form.addParam('doInvert', params.BooleanParam, default=True,
+                      condition='not doContinue',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Invert",
+                      help="Invert input particles?")
+
+        form.addParam('doWindow', params.BooleanParam, default=False,
+                      condition='not doContinue',
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Circular mask",
+                      help="Apply for circular mask?")
+
+        form.addParam('winSize', params.FloatParam, default=0.85,
+                      expertLevel=params.LEVEL_ADVANCED,
+                      condition='doWindow and not doContinue',
+                      label="Window size",
+                      help="Circular windowing mask inner radius")
+
         form.addParam('searchRange', params.IntParam, default=10,
                       condition='not doContinue',
-                      label='Translational search range (px)')
-        form.addParam('psFreq', params.IntParam, default=5,
-                      condition='not doContinue',
-                      label='Update poses every N epochs')
+                      expertLevel=params.LEVEL_ADVANCED,
+                      label="Search range",
+                      help='Translational search range (px)')
 
-        form.addParam('extraParams', params.StringParam, default="",
-                      label="Extra params",
-                      help="Here you can provide all extra command-line "
-                           "parameters. See *cryodrgn abinit_het -h* for help.")
+        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
+                       label="Choose GPU IDs",
+                       help="GPU may have several cores. Set it to zero"
+                            " if you do not know what we are talking about."
+                            " First core index is 0, second 1 and so on."
+                            " You can use multiple GPUs - in that case"
+                            " set to i.e. *0 1 2*.")
+
+        form.addParallelSection(threads=1, mpi=1)
+
+    # --------------------------- INSERT steps functions ----------------------
+
+    def _insertAllSteps(self):
+        self._createFilenameTemplates()
+
+        if self.doContinue:
+            self._insertFunctionStep(self.continueStep, needsGPU=False)
+        else:
+            self._insertFunctionStep(self.convertInputStep, needsGPU=False)
+
+        self._insertFunctionStep(self.runTrainingStep, needsGPU=True)
+        self._insertFunctionStep(self.createOutputStep, needsGPU=False)
 
     # --------------------------- STEPS functions -----------------------------
+
+    def continueStep(self):
+        """ Copy previous run outputs. """
+        prevRun = self.continueRun.get()
+        pwutils.cleanPath(self._getExtraPath())
+        pwutils.copyTree(prevRun._getExtraPath(), self._getExtraPath())
+
+    def convertInputStep(self):
+        """ Create the input star, poses and ctf pkl files as expected by cryoDRGN. """
+        imgSet = self._getInputParticles()
+        alignType = ALIGN_PROJ if self._inputHasAlign() else ALIGN_NONE
+        convert.writeSetOfParticles(imgSet,
+                                    self._getExtraPath('input_particles.star'),
+                                    outputDir=self._getExtraPath(),
+                                    alignType=alignType)
+
+        if self._inputHasAlign() and self.getClassName() != "CryoDrgnProtAbinitio":
+            self._runProgram('parse_pose_star', self._getParsePosesArgs())
+        self._runProgram('parse_ctf_star', self._getParseCtfArgs())
+
     def runTrainingStep(self):
         run = self._getRun()
         protType = run.protType.get()
@@ -85,17 +418,43 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
         """ Creating a set of particles with z_values. """
         run = self._getRun()
         protType = run.protType.get()
-        if protType == AB_INITIO_HETERO:
-            CryoDrgnProtBase.createOutputStep(self)
-        else:
-            # Creating output volume
-            inputSet = self._getInputParticles()
-            vol = Volume()
-            vol.setFileName(self.getOutputDir("reconstruct.mrc"))
-            vol.setSamplingRate(inputSet.getSamplingRate())
+        inputSet = self._getInputParticles()
 
-            self._defineOutputs(**{outputs.Volumes.name: vol})
-            self._defineSourceRelation(self._getInputParticles(pointer=True), vol)
+        if protType == AB_INITIO_HETERO:
+            zValues = iter(self._getParticlesZvalues())
+            outImgSet = self._createSetOfParticlesFlex(progName=CRYODRGN)
+            outImgSet.copyInfo(inputSet)
+            outImgSet.setHasCTF(inputSet.hasCTF())
+            outImgSet.getFlexInfo().setProgName(CRYODRGN)
+
+            for particle, zValue in zip(inputSet, zValues):
+                outParticle = emobj.ParticleFlex(progName=CRYODRGN)
+                outParticle.copyInfo(particle)
+                outParticle.getFlexInfo().setProgName(CRYODRGN)
+
+                outParticle.setZFlex(list(zValue))
+
+                outImgSet.append(outParticle)
+
+            outImgSet.getFlexInfo().setAttr(WEIGHTS, self._getFileName('weights_final'))
+            outImgSet.getFlexInfo().setAttr(CONFIG, self._getFileName('config'))
+            outImgSet.getFlexInfo().setAttr(AB_INITIO_HETERO_LABEL, AB_INITIO_HETERO)
+
+            self._defineOutputs(outputParticles=outImgSet)
+            self._defineSourceRelation(inputSet, outImgSet)
+
+        elif protType == AB_INITIO_HOMO:
+            fn = self._getOutputDir("volumes.sqlite")
+            vols = emobj.SetOfVolumes(filename=fn)
+            vols.setSamplingRate(inputSet.getSamplingRate())
+            for epoch in range(self.numEpochs.get()):
+                vol = emobj.Volume()
+                vol.setFileName(self._getOutputDir(f"reconstruct.{epoch}.mrc"))
+                vol.setSamplingRate(inputSet.getSamplingRate())
+                vols.append(vol)
+
+            self._defineOutputs(outputVolume=vols)
+            self._defineSourceRelation(inputSet, vols)
 
     # --------------------------- INFO functions ------------------------------
     def _summary(self):
@@ -109,12 +468,17 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
         errors = super()._validate()
 
         if not self.doContinue:
-            if self.zDim > 1 and self.protType.get() == AB_INITIO_HOMO:
-                errors.append("Latent variable must be 1 for "
-                              "homogeneous reconstruction")
             if self.zDim == 1 and self.protType.get() == AB_INITIO_HETERO:
-                errors.append("Latent variable must be >1 for "
+                errors.append("Latent variable must be > 1 for "
                               "heterogeneous reconstruction")
+        else:
+            if not self.continueRun.hasValue():
+                errors.append("Select the input run to continue from!")
+
+            prevEpochs = self.continueRun.get().numEpochs.get()
+            if self.numEpochs <= prevEpochs:
+                errors.append(f"Number of epochs must be larger than {prevEpochs} "
+                              "that are already completed!")
 
         return errors
 
@@ -128,27 +492,86 @@ class CryoDrgnProtAbinitio(CryoDrgnProtBase):
         args = [
             self._getFileName('input_parts'),
             f"--ctf {self._getFileName('input_ctfs')}",
-            f"-o {self.getOutputDir()}",
+            f"-o {self._getOutputDir()}",
             f"-n {self.numEpochs}",
+            f"--lr {self.learningRate}",
+            f"--wd {self.weightDecay}",
+            f"--batch-size {self.batchSize}",
             f"--t-extent {run.searchRange}",
-            f"--ps-freq {run.psFreq}",
             "--load latest" if self.doContinue else "",
             f"--datadir {self._getExtraPath('input')}"
         ]
 
+        if run.doWindow:
+            args.append(f"--window-r {run.winSize}")
+
+        if not run.doInvert:  # neg. stain only
+            args.append('--uninvert-data')
+
         if protType == AB_INITIO_HETERO:
             args.extend([
                 f"--zdim {run.zDim}",
+                f"--enc-mask -1",
                 f"--max-threads {self.numberOfThreads}",
+                f"--enc-layers {run.qLayers}",
+                f"--enc-dim {run.qDim}",
+                f"--dec-layers {run.pLayers}",
+                f"--dec-dim {run.pDim}"
             ])
 
             if len(self.getGpuList()) > 1:  # only for hetero
                 args.append('--multigpu')
 
-        if self.extraParams.hasValue():
-            args.append(self.extraParams.get())
-
         return args
 
     def _getRun(self):
         return self.continueRun.get() if self.doContinue else self
+
+    def _getParsePosesArgs(self):
+        args = [
+            self._getFileName('input_parts'),
+            f"-o {self._getFileName('input_poses')}"
+        ]
+
+        return args
+
+    def _getParseCtfArgs(self):
+        args = [
+            self._getFileName('input_parts'),
+            f"-o {self._getFileName('input_ctfs')}",
+            "--ps 0"  # required due to cryodrgn parsing bug
+        ]
+
+        return args
+
+    def _runProgram(self, program, args):
+        gpus = ','.join(str(i) for i in self.getGpuList())
+        self.runJob(Plugin.getProgram(program, gpus), ' '.join(args), env=pwutils.Environ())
+
+    def _getParticlesZvalues(self):
+        """
+        Read from z.pkl file the particles z_values
+        :return: a numpy array with the particles z_values
+        """
+        zEpochFile = self._getFileName("z_final")
+        with open(zEpochFile, 'rb') as f:
+            zValues = pickle.load(f)
+
+        return zValues
+
+    def _getOutputDir(self, *paths):
+        return self._getExtraPath("output", *paths)
+
+    def _getInputParticles(self, pointer=False):
+        if self.doContinue and self.continueRun.hasValue():
+            parts = self.continueRun.get().inputParticles
+        else:
+            parts = self.inputParticles
+
+        return parts if pointer else parts.get()
+
+    def _hasMultLatentVars(self):
+        return int(self.zDim) > 1
+
+    def _inputHasAlign(self):
+        return self._getInputParticles().hasAlignmentProj()

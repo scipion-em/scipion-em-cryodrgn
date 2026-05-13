@@ -51,7 +51,7 @@ class CryoDrgnViewer(EmProtocolViewer):
     def _createFilenameTemplates(self):
         """ Centralize how files are called. """
         if self.protocol.hasMultLatentVars():
-            path = glob(self.protocol.getOutputDir("analyze.*/kmeans*"))[0]
+            path = glob(self.protocol._getOutputDir("analyze.*/kmeans*"))[0]
             out = lambda p: os.path.join(path, p)
             self._updateFilenamesDict({
                 'umap': out('umap.png'),
@@ -65,7 +65,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                 'notebook': out('../cryoDRGN_filtering.ipynb')
             })
             if self.protocol.doLandscape:
-                path = glob(self.protocol.getOutputDir("landscape.*"))[0]
+                path = glob(self.protocol._getOutputDir("landscape.*"))[0]
                 out = lambda p: os.path.join(path, "clustering_L2_%(algorithm)s_%(clusters)d", p)
                 self._updateFilenamesDict({
                     'landscape_vols_vae': out('umap.png'),
@@ -74,7 +74,7 @@ class CryoDrgnViewer(EmProtocolViewer):
                     'landscape_parts_count': out('state_particle_counts.png'),
                 })
         else:
-            path = glob(self.protocol.getOutputDir("analyze.*"))[0]
+            path = glob(self.protocol._getOutputDir("analyze.*"))[0]
             out = lambda p: os.path.join(path, p)
             self._updateFilenamesDict({
                 'simple_hist': out('z_hist.png'),

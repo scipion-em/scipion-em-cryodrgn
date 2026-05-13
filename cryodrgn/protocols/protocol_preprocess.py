@@ -44,7 +44,151 @@ class outputs(Enum):
 
 
 class CryoDrgnProtPreprocess(ProtProcessParticles):
-    """ Protocol to downsample a particle stack. """
+    """
+    Preprocesses cryo-EM particle stacks for cryoDRGN analysis by
+    optionally downsampling particles and preparing them for neural
+    network training workflows. The protocol standardizes particle
+    dimensions and sampling properties while preserving the metadata
+    required for downstream heterogeneous reconstruction and latent
+    space analysis.
+
+    AI Generated:
+
+    CryoDRGN Particle Preprocessing (CryoDrgnProtPreprocess) — User Manual
+        Overview
+
+        The CryoDRGN Particle Preprocessing protocol prepares cryo-EM
+        particle stacks for efficient use in cryoDRGN neural network
+        workflows. Its primary purpose is to generate particle datasets
+        with dimensions and sampling properties suitable for deep learning
+        training while maintaining consistency with the original
+        experimental information.
+
+        In practical cryo-EM workflows, preprocessing is often one of the
+        first steps before heterogeneous reconstruction or latent space
+        analysis. Large particle box sizes can significantly increase GPU
+        memory usage and computational cost during neural network training.
+        Downsampling particles allows users to reduce these requirements
+        while preserving the structural features necessary for studying
+        conformational variability.
+
+        Biological Motivation and Practical Context
+
+        CryoDRGN workflows are commonly used to analyze continuous
+        heterogeneity, flexible molecular motions, and multiple structural
+        states within cryo-EM datasets. In these analyses, computational
+        efficiency becomes particularly important because neural network
+        training may require many epochs and large particle populations.
+
+        Downsampling provides a balance between structural detail and
+        computational feasibility. Lower-resolution representations are
+        often sufficient during exploratory analysis or initial latent
+        space training, especially when the goal is to identify major
+        conformational trends rather than high-resolution features.
+
+        Biological users frequently begin with reduced box sizes to
+        accelerate experimentation and parameter optimization before
+        training more computationally demanding models on higher-resolution
+        particles.
+
+        Input Requirements and Data Consistency
+
+        The protocol accepts a set of cryo-EM particles that typically
+        originate from consensus refinements or other reconstruction
+        workflows. Ideally, particles should already be reasonably aligned
+        and centered prior to preprocessing.
+
+        Alignment information is particularly important for standard
+        cryoDRGN heterogeneous reconstruction workflows because particle
+        orientations guide the relationship between experimental images and
+        reconstructed conformational states. When alignment information is
+        absent, the resulting dataset may still be suitable for ab initio
+        training, although downstream interpretation becomes more limited.
+
+        The preprocessing stage also preserves important metadata such as
+        coordinates and geometric relationships. This ensures that the
+        processed particles remain compatible with later refinement and
+        reconstruction steps.
+
+        Downsampling Strategy
+
+        The central operation of this protocol is particle downsampling.
+        Reducing the box size decreases memory usage, accelerates disk
+        access, and substantially shortens neural network training time.
+
+        From a biological perspective, the chosen box size should remain
+        large enough to preserve the structural features relevant to the
+        intended analysis. Excessive downsampling may remove subtle
+        conformational signals or blur flexible domains that are important
+        for interpreting molecular dynamics.
+
+        A moderate reduction in particle dimensions is often a good
+        starting point for exploratory latent space analysis. Once
+        meaningful conformational organization has been identified, users
+        may decide to retrain using larger particle dimensions for improved
+        structural detail.
+
+        Computational Considerations
+
+        Neural network training efficiency strongly depends on particle
+        dimensions. Smaller box sizes allow larger batch sizes and more
+        stable GPU memory usage, which can significantly accelerate
+        experimentation.
+
+        The protocol also supports splitting particle stacks into smaller
+        chunks. This is useful when working with extremely large datasets
+        or limited storage environments because it improves manageability
+        and reduces the size of individual output files.
+
+        Certain neural network optimizations benefit from box sizes that
+        are divisible by specific values. Choosing dimensions compatible
+        with mixed-precision training can substantially improve training
+        performance on modern GPU hardware.
+
+        Interpretation of the Output
+
+        The output consists of a processed particle stack with updated
+        sampling information and geometry adjusted to match the new image
+        dimensions. The resulting particles remain associated with their
+        original metadata and can be directly used in downstream cryoDRGN
+        workflows.
+
+        Biologically, the processed dataset should be interpreted as a
+        computationally optimized representation of the original particle
+        population rather than a fundamentally altered dataset. Structural
+        relationships and conformational variability are preserved within
+        the limits imposed by the selected resolution and box size.
+
+        Practical Recommendations
+
+        In routine practice, many users begin with moderate downsampling
+        during exploratory heterogeneity analysis. This allows rapid
+        testing of training parameters and latent space organization before
+        investing computational resources into larger-scale models.
+
+        Care should be taken to avoid reducing particle dimensions below
+        the scale required to visualize the biological variability of
+        interest. Flexible domains, ligand-binding regions, or subtle
+        conformational transitions may become difficult to resolve if the
+        box size is excessively reduced.
+
+        Users should also verify that the selected box size remains even
+        and computationally compatible with the intended cryoDRGN training
+        configuration.
+
+        Final Perspective
+
+        Particle preprocessing is a foundational preparation step for
+        neural network-based cryo-EM heterogeneity analysis. By balancing
+        computational efficiency with preservation of biologically relevant
+        structural information, the CryoDRGN Particle Preprocessing
+        protocol enables practical and scalable exploration of molecular
+        flexibility within large cryo-EM datasets.
+
+        Thoughtful selection of particle dimensions and preprocessing
+        strategy can strongly influence both the efficiency of training and
+        the interpretability of downstream conformational analysis.
+    """
     _label = 'preprocess particles'
     _devStatus = PROD
     _possibleOutputs = outputs
