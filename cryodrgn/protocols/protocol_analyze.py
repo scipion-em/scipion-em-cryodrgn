@@ -43,7 +43,216 @@ from ..constants import *
 
 
 class CryoDrgnProtAnalyze(ProtProcessParticles, ProtFlexBase):
-    """ CryoDrgn protocol to visualize latent space and generate volumes. """
+    """
+    Visualizes latent conformational space and generates representative
+    3D volumes from CryoDRGN training results. The protocol enables the
+    exploration of structural heterogeneity by analyzing latent embeddings,
+    reconstructing density maps, and organizing conformational variability
+    into interpretable trajectories and clusters.
+
+    AI Generated:
+
+    Analyze Results (CryoDrgnProtAnalyze) - User Manual
+        Overview
+
+        The Analyze Results protocol is designed to interpret and explore
+        conformational variability learned by CryoDRGN models. After a neural
+        network has been trained on cryo-EM particles, the resulting latent
+        space contains information describing continuous or discrete structural
+        changes within the dataset. This protocol transforms those latent
+        representations into biologically meaningful visualizations and
+        representative density maps.
+
+        In practical cryo-EM studies, structural heterogeneity is often one of
+        the central scientific questions. Flexible assemblies, dynamic enzymes,
+        membrane proteins, and large molecular machines frequently populate a
+        continuum of conformational states rather than a single rigid structure.
+        This protocol allows users to inspect that variability, identify
+        dominant conformations, and reconstruct representative maps suitable
+        for downstream interpretation or refinement.
+
+        Inputs and General Workflow
+
+        The protocol requires a previously completed CryoDRGN training or
+        ab initio reconstruction together with the associated particle set.
+        Users may choose to analyze either the final training epoch or a
+        specific epoch from the training trajectory. This flexibility is useful
+        because latent spaces can evolve significantly during optimization, and
+        intermediate epochs may occasionally provide cleaner or more stable
+        conformational organization.
+
+        During execution, the protocol reads the latent embeddings associated
+        with the particles and performs a series of analyses that may include
+        dimensionality reduction, clustering, graph traversal, and volume
+        generation. The outputs include updated particle sets carrying latent
+        coordinates as metadata together with representative reconstructed
+        density maps.
+
+        Biological Interpretation of Latent Space
+
+        The latent space represents conformational variability learned directly
+        from the experimental particles. Nearby points generally correspond to
+        structurally related conformations, whereas distant points indicate more
+        pronounced structural differences. The analysis tools provided here are
+        intended to help transform these abstract numerical coordinates into
+        interpretable biological transitions.
+
+        In many biological systems, latent dimensions may capture motions such
+        as domain opening and closing, ligand-dependent rearrangements, or
+        continuous assembly dynamics. However, users should interpret latent
+        organization carefully. Distances in latent space do not necessarily
+        correspond to physical free-energy differences, and poorly sampled
+        regions may generate unreliable reconstructions.
+
+        Principal Component Traversals
+
+        The protocol can generate traversals along principal directions of the
+        latent space. These trajectories are useful for visualizing dominant
+        modes of structural variability across the dataset. Biologically, such
+        traversals often reveal gradual transitions between conformations and
+        can help identify hinge motions, coordinated domain rearrangements, or
+        continuous flexibility.
+
+        In practice, principal component traversals are especially informative
+        when the conformational landscape is smooth and well sampled. When the
+        dataset contains multiple disconnected states or strong compositional
+        heterogeneity, interpretation becomes more complex and additional
+        clustering analyses are often beneficial.
+
+        K-Means Sampling and Representative Volumes
+
+        One of the core objectives of the protocol is to generate a manageable
+        collection of representative density maps from the latent space. This
+        is achieved through clustering strategies that partition the conformational
+        landscape into representative regions.
+
+        The resulting volumes provide biologically meaningful snapshots of the
+        molecular ensemble. Users commonly inspect these maps visually to detect
+        distinct structural states, compare ligand occupancy, identify flexible
+        domains, or select subsets for higher-resolution refinement workflows.
+
+        Choosing the number of representative samples requires biological
+        judgment. Too few samples may oversimplify the landscape and hide
+        important intermediates, while too many may produce highly redundant
+        volumes that complicate interpretation.
+
+        Graph Traversal and Continuous Conformational Pathways
+
+        The graph traversal option attempts to identify continuous pathways
+        through latent space while remaining within regions supported by the
+        experimental data. This approach is particularly valuable for studying
+        smooth conformational transitions rather than isolated structural states.
+
+        From a biological perspective, graph traversal can help visualize
+        molecular trajectories connecting different conformations. Examples
+        include ribosomal rotations, channel gating motions, or domain
+        rearrangements in molecular motors. Because the generated paths remain
+        constrained by occupied regions of latent space, the resulting
+        trajectories are generally more reliable than naive interpolation
+        between distant conformations.
+
+        Nevertheless, users should remain cautious when interpreting these
+        pathways as true kinetic or energetic transitions. The trajectories
+        represent geometrical continuity within the learned embedding space
+        rather than experimentally measured reaction coordinates.
+
+        Conformational Landscape Analysis
+
+        The conformational landscape analysis mode provides a more comprehensive
+        framework for studying structural heterogeneity. It combines clustering,
+        dimensionality reduction, and map generation to produce a structured
+        overview of the conformational organization learned during training.
+
+        This analysis is especially useful for large and heterogeneous datasets
+        where visual inspection alone becomes difficult. By assigning particles
+        into conformational regions, the protocol facilitates downstream focused
+        refinement strategies and enables quantitative comparisons between
+        states.
+
+        In many practical workflows, this analysis serves as a bridge between
+        exploratory heterogeneous reconstruction and high-resolution refinement
+        of biologically relevant substates.
+
+        Masking Strategies
+
+        The protocol supports both automatic and user-provided masking during
+        landscape analysis. Masking is biologically important because it defines
+        which regions of the reconstruction contribute most strongly to the
+        analysis and clustering procedures.
+
+        Automatic masking is convenient for exploratory studies and generally
+        performs well for compact particles with moderate flexibility. However,
+        custom masks are often preferable for complex assemblies containing
+        highly mobile domains, detergent micelles, disordered regions, or large
+        solvent regions.
+
+        Biologically meaningful masks should focus on structurally conserved
+        regions while excluding highly noisy or irrelevant density. Poor masking
+        may distort clustering results or artificially emphasize non-biological
+        variability.
+
+        Downsampling and Computational Considerations
+
+        Optional volume downsampling can substantially reduce computational
+        requirements during exploratory analyses. This is often useful when
+        studying very large complexes or when rapidly screening conformational
+        variability before committing to high-resolution reconstruction.
+
+        Downsampling reduces memory consumption and accelerates volume
+        generation, although it also decreases structural detail. For final
+        interpretation or publication-quality analyses, users generally return
+        to the original sampling whenever feasible.
+
+        Outputs and Their Interpretation
+
+        The protocol produces an updated particle set containing latent-space
+        coordinates associated with each particle. These coordinates may be used
+        in downstream workflows for particle selection, clustering, or focused
+        refinement.
+
+        In addition, the protocol generates representative volumes sampled from
+        the latent space. These maps are intended to summarize the major
+        conformational states present in the dataset and provide interpretable
+        structural snapshots for biological analysis.
+
+        Depending on the selected analysis options, additional outputs may
+        include graph traversal trajectories, dimensionality reduction
+        embeddings, clustering assignments, and conformational landscape
+        representations.
+
+        Practical Recommendations
+
+        For exploratory analysis, it is often useful to begin with a moderate
+        number of representative samples and inspect the resulting volumes
+        visually. If the latent organization appears smooth and continuous,
+        principal component traversals and graph traversal analyses can provide
+        valuable insight into molecular motions.
+
+        For highly heterogeneous datasets, conformational landscape analysis
+        combined with carefully designed masks often produces more interpretable
+        results. Users should also verify that generated maps correspond to
+        physically meaningful conformations rather than noise-driven artifacts.
+
+        When studying subtle structural rearrangements, maintaining the original
+        box size and sampling rate is generally preferable. Conversely,
+        downsampling can accelerate exploratory workflows during early stages of
+        analysis.
+
+        Final Perspective
+
+        The Analyze Results protocol provides a bridge between neural-network
+        latent representations and biologically interpretable structural
+        variability. Rather than treating heterogeneity as a nuisance, the
+        protocol enables researchers to directly explore conformational continua,
+        identify representative molecular states, and visualize dynamic
+        transitions embedded within cryo-EM datasets.
+
+        For many modern cryo-EM studies, understanding conformational dynamics
+        is as important as obtaining high-resolution structures. Careful
+        interpretation of latent-space organization, thoughtful masking, and
+        biologically informed selection of representative states are essential
+        for extracting reliable insights from heterogeneous datasets.
+    """
 
     _label = "analyze results"
     _devStatus = PROD

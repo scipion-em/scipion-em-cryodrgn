@@ -40,7 +40,201 @@ convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 class CryoDrgnProtAbinitio(ProtProcessParticles, ProtFlexBase):
     """
-    Protocol to run ab-initio reconstruction with cryoDRGN neural network.
+    Performs ab initio three-dimensional reconstruction of cryo-EM particle datasets
+    using the cryoDRGN neural network framework. The protocol supports both
+    homogeneous and heterogeneous reconstruction strategies, enabling users to
+    recover either a single consensus structure or a continuous distribution of
+    conformational states directly from experimental particle images.
+
+    AI Generated:
+
+    Ab Initio Reconstruction (CryoDrgnProtAbinitio) - User Manual
+        Overview
+
+        The Ab Initio Reconstruction protocol provides a neural-network-based
+        strategy for reconstructing cryo-EM structures without requiring an
+        initial reference map. Its main purpose is to allow biological users
+        to discover structural organization directly from particle images,
+        including the possibility of recovering continuous conformational
+        variability. This approach is particularly useful when little prior
+        structural information is available or when the dataset is expected
+        to contain heterogeneous molecular states.
+
+        In practical cryo-EM workflows, the protocol can be used as an
+        exploratory reconstruction tool, as a starting point for downstream
+        refinement, or as a framework for studying structural flexibility.
+        Depending on the selected mode, the method can either generate a
+        single global reconstruction representing the dominant structure or
+        characterize a heterogeneous conformational landscape through latent
+        variables.
+
+        Homogeneous and Heterogeneous Reconstruction
+
+        The protocol supports two biologically distinct reconstruction modes.
+        Homogeneous reconstruction assumes that all particles correspond to
+        a single structural state. This mode is appropriate for stable,
+        rigid complexes with limited conformational variability. In this
+        scenario, the protocol progressively reconstructs a consensus volume
+        through iterative optimization across training epochs.
+
+        Heterogeneous reconstruction is intended for systems exhibiting
+        continuous or discrete conformational variability. Instead of forcing
+        all particles into a single structure, the protocol learns a latent
+        representation describing structural diversity. This strategy is
+        especially valuable for flexible proteins, molecular machines,
+        membrane complexes, and assemblies undergoing functional motions.
+
+        From a biological perspective, heterogeneous reconstruction allows
+        the exploration of conformational continua rather than restricting
+        analysis to a small number of discrete classes. This can reveal
+        intermediate states that are difficult to identify using traditional
+        classification workflows.
+
+        Input Data and Experimental Considerations
+
+        The protocol requires a set of cryo-EM particles together with
+        associated contrast transfer function information. Particle quality
+        strongly influences reconstruction reliability. Datasets containing
+        severe contamination, strong preferred orientation, or inaccurate
+        particle picking may produce unstable or biologically ambiguous
+        reconstructions.
+
+        Projection alignment information can optionally be incorporated when
+        available. Providing reliable alignment estimates may improve
+        convergence and accelerate optimization, particularly in challenging
+        datasets. However, the protocol is also capable of operating in more
+        exploratory situations where orientation information is incomplete or
+        uncertain.
+
+        For biological interpretation, it is generally advisable to begin
+        with carefully curated particles and to ensure that voxel size and
+        particle box dimensions are physically meaningful and internally
+        consistent.
+
+        Latent Space Representation
+
+        In heterogeneous reconstruction mode, the protocol models structural
+        variability through a latent space representation. Each particle is
+        associated with latent coordinates that describe its position within
+        the conformational landscape. Biologically, nearby positions in this
+        latent space are expected to correspond to structurally related
+        molecular states.
+
+        The dimensionality of the latent representation is one of the most
+        important conceptual parameters. Smaller dimensions simplify the
+        conformational landscape and may improve interpretability, while
+        larger dimensions allow more complex structural variability to be
+        represented. Excessively large latent spaces, however, may capture
+        noise instead of biologically meaningful motions.
+
+        In practice, moderate latent dimensions are often preferred during
+        initial exploratory analysis. Once the dataset behavior becomes
+        clearer, additional experiments with larger dimensions can be used
+        to investigate more subtle conformational changes.
+
+        Neural Network Architecture and Training
+
+        The protocol allows control over encoder and decoder network
+        complexity through the number of layers and hidden dimensions.
+        Larger architectures may capture more detailed structural variability
+        but require increased computational resources and larger datasets to
+        train reliably.
+
+        The number of training epochs determines how many optimization cycles
+        are performed. Insufficient training may produce underdeveloped
+        reconstructions, whereas excessive training can increase runtime and
+        potentially lead to overfitting. The optimal balance depends on
+        particle count, structural complexity, and image quality.
+
+        Batch size, learning rate, and weight decay further influence
+        optimization stability. For most biological users, default values
+        provide a suitable starting point, while advanced users may tune
+        these parameters when dealing with unusually large, noisy, or highly
+        heterogeneous datasets.
+
+        Particle Preprocessing and Masking
+
+        Several preprocessing options are available to improve training
+        behavior. Input particles may be intensity inverted when necessary,
+        which is particularly important for datasets whose contrast
+        convention differs from the assumptions of the reconstruction
+        framework.
+
+        Circular masking can also be applied to suppress peripheral noise and
+        solvent regions. This is especially useful for relatively compact
+        particles where background regions contribute little biological
+        information. Choosing an excessively restrictive mask, however, may
+        remove flexible domains or peripheral regions that are structurally
+        important.
+
+        Translational search ranges define how broadly particle shifts are
+        explored during optimization. Small ranges are efficient for well
+        centered particles, while larger ranges may help compensate for
+        imperfect centering during particle extraction.
+
+        Continuing Previous Training Runs
+
+        The protocol supports continuation of previously completed training
+        sessions. This capability is particularly valuable when additional
+        optimization is needed after an initial exploratory run or when
+        computational limits require training to be split across multiple
+        sessions.
+
+        Continuing training preserves the previously learned reconstruction
+        and latent representation while extending optimization for additional
+        epochs. From a biological standpoint, this allows users to refine
+        difficult datasets progressively without restarting the entire
+        process.
+
+        Outputs and Biological Interpretation
+
+        In heterogeneous mode, the protocol produces a set of particles
+        enriched with latent coordinates describing conformational variability.
+        These latent representations can later be analyzed to identify
+        conformational trajectories, clusters, or continuous motions within
+        the dataset.
+
+        In homogeneous mode, the protocol generates a sequence of
+        reconstructed volumes corresponding to different stages of training.
+        These intermediate reconstructions allow users to monitor convergence
+        and assess reconstruction stability over time.
+
+        The final outputs may serve as starting points for downstream
+        refinement, conformational analysis, variability exploration, or
+        structural interpretation. Careful biological validation remains
+        essential, particularly when interpreting subtle conformational
+        differences recovered from heterogeneous datasets.
+
+        Practical Recommendations
+
+        For exploratory studies, it is often beneficial to begin with smaller
+        particle box sizes and moderate latent dimensions to reduce
+        computational cost and improve training stability. Once promising
+        structural behavior is identified, higher-resolution experiments can
+        be performed using refined parameters.
+
+        Stable and relatively rigid complexes are usually well suited for
+        homogeneous reconstruction, while flexible molecular assemblies often
+        benefit significantly from heterogeneous analysis. When uncertainty
+        exists regarding dataset variability, exploratory heterogeneous runs
+        can help determine whether conformational diversity is present.
+
+        Visual inspection of reconstructions, latent organization, and
+        particle distributions should always accompany quantitative analysis.
+        Neural-network-based reconstructions can reveal biologically relevant
+        variability, but they may also amplify dataset imperfections if
+        particle quality is poor.
+
+        Final Perspective
+
+        For many cryo-EM studies, ab initio neural reconstruction represents
+        more than a computational initialization step. It provides a direct
+        framework for discovering structural organization and conformational
+        behavior from experimental images without relying on predefined
+        structural assumptions. Careful parameter selection, thoughtful
+        interpretation of latent variability, and rigorous biological
+        validation are essential for obtaining meaningful and reliable
+        structural insights.
     """
     _label = 'training ab-initio'
     _devStatus = PROD

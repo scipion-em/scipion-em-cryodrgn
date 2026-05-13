@@ -39,7 +39,209 @@ from ..constants import *
 convert = Domain.importFromPlugin('relion.convert', doRaise=True)
 
 class CryoDrgnProtTrain(ProtProcessParticles, ProtFlexBase):
-    """ Protocol to train cryoDRGN neural network. """
+    """
+    Trains a cryoDRGN variational autoencoder model to learn continuous
+    structural heterogeneity directly from cryo-EM particle images. The
+    protocol enables reconstruction of flexible molecular landscapes by
+    embedding particles into a latent space that captures conformational
+    variability across the dataset.
+
+    AI Generated:
+
+    CryoDRGN Training (CryoDrgnProtTrain) — User Manual
+        Overview
+
+        The CryoDRGN Training protocol is designed to analyze continuous
+        conformational heterogeneity in cryo-electron microscopy datasets
+        using deep learning approaches based on variational autoencoders.
+        Instead of describing molecular variability through a small number
+        of discrete classes, the protocol models structural differences as
+        a continuous latent landscape. This allows researchers to study
+        gradual motions, domain rearrangements, and flexible transitions
+        that are often difficult to capture using conventional classification
+        strategies.
+
+        In practical cryo-EM workflows, this protocol is especially useful
+        for studying dynamic macromolecular assemblies, flexible enzymes,
+        membrane proteins, ribosomes, and complexes undergoing functional
+        transitions. By learning a compact latent representation of particle
+        variability, the protocol enables downstream visualization and
+        interpretation of conformational continua rather than isolated
+        structural snapshots.
+
+        Inputs and Biological Context
+
+        The protocol requires a set of particles associated with a consensus
+        reconstruction and containing valid projection alignment information.
+        The quality of these alignments is biologically important because
+        accurate orientation estimates strongly influence the ability of the
+        neural network to separate structural variability from alignment
+        uncertainty.
+
+        In most biological applications, the input dataset should correspond
+        to a single biochemical composition or assembly state. Mixing
+        particles from unrelated complexes, severe contaminants, or strongly
+        heterogeneous stoichiometries may produce latent representations
+        that are difficult to interpret biologically.
+
+        The protocol also supports continuation from a previous training run.
+        This capability is particularly valuable for large cryo-EM datasets
+        where extended optimization may be required to adequately capture
+        complex conformational landscapes. Continuing a previous run allows
+        refinement of the latent representation without restarting the entire
+        learning process.
+
+        Latent Space Representation
+
+        One of the most important parameters is the dimensionality of the
+        latent space. This latent representation defines how structural
+        variability is encoded internally. Smaller dimensions typically
+        capture only the largest conformational motions, while larger latent
+        spaces can describe more subtle and complex variability.
+
+        For exploratory biological analyses, lower-dimensional latent spaces
+        are often easier to interpret visually because they tend to reveal
+        dominant motions such as hinge movements or domain opening events.
+        Higher-dimensional representations may capture richer variability,
+        but interpretation becomes progressively more difficult and may
+        require additional downstream analysis.
+
+        The latent representation should not be interpreted as a direct
+        physical coordinate system. Instead, it reflects a mathematical
+        embedding of structural variability inferred from the particle data.
+        Nearby points in the latent space generally correspond to similar
+        conformations, while distant points represent more distinct states.
+
+        Neural Network Architecture
+
+        The protocol allows advanced control over both encoder and decoder
+        architectures. These neural network components determine how particle
+        images are compressed into latent coordinates and subsequently used
+        to reconstruct structural information.
+
+        Larger and deeper architectures may improve the representation of
+        complex structural variability, particularly for high-resolution
+        datasets or highly flexible systems. However, increasing network
+        complexity also raises computational cost and memory requirements.
+        For many biological applications, default architectures provide a
+        good balance between performance and stability.
+
+        Users working with extremely heterogeneous systems or very large
+        particle datasets may benefit from experimenting with deeper models,
+        while smaller datasets may train more reliably with simpler
+        architectures.
+
+        Training Strategy and Optimization
+
+        The training process iteratively refines the neural network over
+        multiple epochs. Each epoch corresponds to a complete pass through
+        the dataset. The appropriate number of epochs depends on dataset
+        size, structural complexity, particle quality, and desired level
+        of convergence.
+
+        Batch size influences both computational efficiency and optimization
+        stability. Larger batches may accelerate training on powerful GPUs,
+        while smaller batches are often more memory efficient and stable on
+        limited hardware resources.
+
+        The learning rate controls how aggressively the optimization updates
+        the neural network parameters. Excessively high learning rates may
+        destabilize training, whereas very small values may lead to slow
+        convergence. In most biological workflows, moderate default values
+        provide reliable behavior.
+
+        Weight decay can optionally regularize the optimization process and
+        reduce overfitting. This may become useful when training on smaller
+        datasets or when the learned latent space appears excessively noisy.
+
+        Particle Preprocessing and Image Conditioning
+
+        The protocol provides optional preprocessing operations that influence
+        how particle images are interpreted during training. One option
+        applies image inversion, which is particularly relevant depending on
+        whether particles appear with dark or bright contrast relative to
+        the background.
+
+        Another important option is the application of a circular mask.
+        Masking helps focus the neural network on biologically meaningful
+        regions while suppressing background solvent noise. In many cryo-EM
+        datasets, especially those containing flexible peripheral regions,
+        masking improves training stability and enhances interpretability of
+        the latent landscape.
+
+        From a biological perspective, the mask radius should include the
+        relevant molecular density while avoiding excessive solvent area.
+        Overly tight masking may suppress meaningful flexible motions, while
+        excessively loose masking may allow noise to dominate the learning
+        process.
+
+        GPU Acceleration and Computational Considerations
+
+        CryoDRGN training is computationally intensive and benefits strongly
+        from GPU acceleration. The protocol supports execution on one or
+        multiple GPUs, allowing efficient handling of large cryo-EM datasets
+        and high-dimensional latent spaces.
+
+        Runtime depends heavily on particle count, image size, network
+        architecture, and latent dimensionality. Large datasets with high
+        resolution images may require substantial GPU memory and extended
+        training times. Users should therefore balance biological ambition
+        with available computational resources.
+
+        Outputs and Biological Interpretation
+
+        The primary result of the protocol is a trained latent representation
+        describing the conformational variability present in the particle
+        dataset. Each particle becomes associated with a coordinate in the
+        latent space, enabling downstream visualization, clustering, and
+        trajectory analysis.
+
+        Biologically, these latent coordinates can reveal continuous motions,
+        conformational pathways, and relationships between structural states.
+        Researchers often use these embeddings to identify transition
+        pathways, reconstruct representative conformations, or explore energy
+        landscapes associated with molecular function.
+
+        The protocol also generates trained model parameters and associated
+        metadata required for later reconstruction and visualization steps.
+        These outputs serve as the foundation for subsequent exploration of
+        heterogeneous structural ensembles.
+
+        Practical Recommendations
+
+        In routine biological practice, it is often advisable to begin with
+        moderate image sizes, conservative latent dimensionality, and default
+        network architectures. This approach provides rapid initial insight
+        into the heterogeneity landscape before investing computational
+        resources into larger and more detailed models.
+
+        When the latent space appears noisy or poorly organized, improving
+        particle quality, refining consensus alignments, or applying
+        appropriate masking often provides larger benefits than increasing
+        model complexity. Similarly, biologically meaningful variability is
+        usually easier to interpret when the dataset is relatively clean and
+        compositionally homogeneous.
+
+        For highly dynamic systems, exploring multiple latent dimensions and
+        comparing the resulting landscapes can help distinguish robust
+        conformational signals from optimization artifacts.
+
+        Final Perspective
+
+        Continuous heterogeneity analysis represents a major conceptual shift
+        in cryo-EM structural biology because it allows molecular flexibility
+        to be modeled as a continuum rather than a collection of isolated
+        classes. The CryoDRGN Training protocol provides a framework for
+        uncovering these complex conformational landscapes directly from
+        experimental particle images.
+
+        Successful biological interpretation depends not only on neural
+        network optimization, but also on careful dataset preparation,
+        reliable particle alignments, appropriate preprocessing, and critical
+        interpretation of the resulting latent space. When used thoughtfully,
+        the protocol can reveal biologically meaningful motions that are
+        inaccessible through traditional discrete reconstruction approaches.
+    """
 
     _label = 'training VAE'
     _devStatus = PROD
